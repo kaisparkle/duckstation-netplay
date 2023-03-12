@@ -6,6 +6,7 @@
 #include "settings.h"
 #include "timing_event.h"
 #include "types.h"
+#include "netplay.h"
 #include <memory>
 #include <optional>
 #include <string>
@@ -443,6 +444,13 @@ void UpdateMemorySaveStateSettings();
 bool LoadRewindState(u32 skip_saves = 0, bool consume_state = true);
 void SetRunaheadReplayFlag();
 
+// netplay
+void NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags);
+void StartNetplaySession(s32 local_handle, u16 local_port, std::string& remote_addr, u16 remote_port, s32 input_delay,
+                         std::string& game_path);
+void CloseNetplaySession();
+void SendNetplayMessage(std::string& message);
+void NetplayLoop();
 } // namespace System
 
 namespace Host {
@@ -491,4 +499,7 @@ bool IsFullscreen();
 
 /// Alters fullscreen state of hosting application.
 void SetFullscreen(bool enabled);
+
+/// Provided by the host; called when the Netplay session sends a message regarding an event to the frontend
+void OnNetplayMessage(std::string& message);
 } // namespace Host

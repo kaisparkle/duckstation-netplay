@@ -9,12 +9,13 @@
 #include <memory>
 #include <optional>
 
-#include "controllersettingsdialog.h"
 #include "common/window_info.h"
+#include "controllersettingsdialog.h"
 #include "core/types.h"
 #include "displaywidget.h"
 #include "settingsdialog.h"
 #include "ui_mainwindow.h"
+#include <netplaysessiondialog.h>
 
 class QLabel;
 class QThread;
@@ -90,6 +91,7 @@ public:
   ALWAYS_INLINE QLabel* getStatusResolutionWidget() const { return m_status_resolution_widget; }
   ALWAYS_INLINE QLabel* getStatusFPSWidget() const { return m_status_fps_widget; }
   ALWAYS_INLINE QLabel* getStatusVPSWidget() const { return m_status_vps_widget; }
+  ALWAYS_INLINE QLabel* getStatusNetPingWidget() const { return m_status_netplay_ping_widget; }
 
 public Q_SLOTS:
   /// Updates debug menu visibility (hides if disabled).
@@ -167,6 +169,8 @@ private Q_SLOTS:
 
   void openCPUDebugger();
   void onCPUDebuggerClosed();
+
+  void onNetplaySessionCreation();
 
 protected:
   void showEvent(QShowEvent* event) override;
@@ -263,6 +267,7 @@ private:
   QLabel* m_status_fps_widget = nullptr;
   QLabel* m_status_vps_widget = nullptr;
   QLabel* m_status_resolution_widget = nullptr;
+  QLabel* m_status_netplay_ping_widget = nullptr;
 
   SettingsDialog* m_settings_dialog = nullptr;
   ControllerSettingsDialog* m_controller_settings_dialog = nullptr;
@@ -271,6 +276,7 @@ private:
   MemoryCardEditorDialog* m_memory_card_editor_dialog = nullptr;
   CheatManagerDialog* m_cheat_manager_dialog = nullptr;
   DebuggerWindow* m_debugger_window = nullptr;
+  NetplaySessionDialog* m_netplay_session_dialog = nullptr;
 
   std::string m_current_game_title;
   std::string m_current_game_serial;

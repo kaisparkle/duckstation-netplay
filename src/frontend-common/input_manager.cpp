@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <core/netplay.h>
 
 Log_SetChannel(InputManager);
 
@@ -712,6 +713,12 @@ void InputManager::AddPadBindings(SettingsInterface& si, const std::string& sect
       AddBindings(bindings, InputAxisEventHandler{[pad_index, bind_index = bi.bind_index](float value) {
                     if (!System::IsValid())
                       return;
+
+                    if (Netplay::Session::IsActive())
+                    {
+                      Netplay::Session::CollectInput(pad_index, bind_index, value);
+                      return;
+                    }
 
                     Controller* c = System::GetController(pad_index);
                     if (c)

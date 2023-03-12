@@ -33,6 +33,7 @@
 #include "mdec.h"
 #include "memory_card.h"
 #include "multitap.h"
+#include "netplay.h"
 #include "pad.h"
 #include "pgxp.h"
 #include "psf_loader.h"
@@ -55,6 +56,7 @@
 #include <fstream>
 #include <limits>
 #include <thread>
+
 Log_SetChannel(System);
 
 #ifdef _WIN32
@@ -203,6 +205,10 @@ static bool s_rewinding_first_save = false;
 static std::deque<MemorySaveState> s_runahead_states;
 static bool s_runahead_replay_pending = false;
 static u32 s_runahead_frames = 0;
+
+// netplay
+static std::deque<MemorySaveState> s_netplay_states;
+static u32 s_netplay_rollback_frames = 0;
 
 static TinyString GetTimestampStringForFileName()
 {
@@ -1520,6 +1526,8 @@ void System::Execute()
 {
   while (System::IsRunning())
   {
+    if (Netplay::Session::IsActive())
+      System::NetplayLoop();
     if (s_display_all_frames)
       System::RunFrame();
     else
@@ -1653,7 +1661,7 @@ bool System::DoState(StateWrapper& sw, GPUTexture** host_texture, bool update_di
   if (!sw.DoMarker("CPU") || !CPU::DoState(sw))
     return false;
 
-  if (sw.IsReading())
+  if (sw.IsReading() && !Netplay::Session::IsActive())
   {
     if (is_memory_state)
       CPU::CodeCache::InvalidateAll();
@@ -2133,7 +2141,8 @@ void System::DoRunFrame()
   }
 
   // Generate any pending samples from the SPU before sleeping, this way we reduce the chances of underruns.
-  SPU::GeneratePendingSamples();
+  if (s_netplay_rollback_frames == 0)
+    SPU::GeneratePendingSamples();
 
   if (s_cheat_list)
     s_cheat_list->Apply();
@@ -4375,4 +4384,186 @@ void System::SetTimerResolutionIncreased(bool enabled)
   else
     timeEndPeriod(1);
 #endif
+}
+
+void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& remote_addr, u16 remote_port,
+                                 s32 input_delay, std::string& game_path)
+{
+  // dont want to start a session when theres already one going on.
+  if (Netplay::Session::IsActive())
+    return;
+  // set game path for later loading during the begin game callback
+  Netplay::Session::SetGamePath(game_path);
+  // set netplay timer
+  const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
+  Netplay::Session::GetTimer()->Init(fps, 180);
+  // create session
+  int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, 8);
+  if (result != GGPO_OK)
+  {
+    Log_ErrorPrintf("Failed to Create Netplay Session! Error: %d", result);
+  }
+}
+
+void System::CloseNetplaySession()
+{
+  if (!Netplay::Session::IsActive())
+    return;
+
+  s_netplay_states.clear();
+  s_netplay_rollback_frames = 0;
+  Netplay::Session::Close();
+}
+
+void System::SendNetplayMessage(std::string& message)
+{
+  if (!Netplay::Session::IsActive())
+    return;
+
+  Netplay::Session::SendMsg(message.c_str());
+}
+
+void System::NetplayLoop()
+{
+  // frame timing
+  std::chrono::steady_clock::time_point start, next, now;
+  start = next = now = std::chrono::steady_clock::now();
+  while (Netplay::Session::IsActive() && System::IsRunning())
+  {
+    now = std::chrono::steady_clock::now();
+    if (now >= next)
+    {
+      s32 timeToWait;
+      Netplay::Session::RunFrame(timeToWait);
+      next = now + std::chrono::microseconds(timeToWait);
+      s_next_frame_time += s_frame_period;
+      System::UpdatePerformanceCounters();
+    }
+  }
+}
+
+void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
+{
+  Netplay::Session::SetInputs(inputs);
+  if (s_netplay_rollback_frames == 0)
+    System::DoRunFrame();
+  else
+    CPU::CodeCache::ExecuteRecompiler();
+  Netplay::Session::AdvanceFrame();
+}
+
+bool _cdecl NpBeginGameCb(void* ctx, const char* game_name)
+{
+  // close system if its already running
+  if (System::IsValid())
+    System::ShutdownSystem(false);
+  // fast boot the selected game and wait for the other player
+  auto param = SystemBootParameters(Netplay::Session::GetGamePath());
+  param.override_fast_boot = true;
+  return System::BootSystem(param);
+}
+
+bool _cdecl NpAdvFrameCb(void* ctx, int flags)
+{
+  s_netplay_rollback_frames--;
+  // Log_InfoPrintf("rbf: %u", s_netplay_rollback_frames);
+  Netplay::Input inputs[2] = {};
+  int disconnectFlags;
+  Netplay::Session::SyncInput(inputs, &disconnectFlags);
+  System::NetplayAdvanceFrame(inputs, disconnectFlags);
+
+  return true;
+}
+
+bool _cdecl NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame)
+{
+  bool result = false;
+  // give ggpo something so it doesnt complain.
+  u8 dummyData = 43;
+  *len = sizeof(u8);
+  *buffer = (unsigned char*)malloc(*len);
+  if (!*buffer)
+    return false;
+  memcpy(*buffer, &dummyData, *len);
+  int pred = Netplay::Session::GetMaxPrediction() + 2;
+  if (frame < pred && s_netplay_states.size() < pred)
+  {
+    MemorySaveState save;
+    result = System::SaveMemoryState(&save);
+    s_netplay_states.push_back(std::move(save));
+  }
+  else
+  {
+    // reuse streams
+    result = System::SaveMemoryState(&s_netplay_states[frame % pred]);
+  }
+  return result;
+}
+
+bool _cdecl NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load)
+{
+  // Disable Audio For upcoming rollback
+  SPU::SetAudioOutputMuted(true);
+  u32 pred = Netplay::Session::GetMaxPrediction() + 2;
+  bool result = System::LoadMemoryState(s_netplay_states[frame_to_load % pred]);
+  s_netplay_rollback_frames = rb_frames;
+  return result;
+}
+
+bool _cdecl NpOnEventCb(void* ctx, GGPOEvent* ev)
+{
+  char buff[128];
+  std::string msg;
+  switch (ev->code)
+  {
+    case GGPOEventCode::GGPO_EVENTCODE_CONNECTED_TO_PEER:
+      sprintf(buff, "Netplay Connected To Player: %d", ev->u.connected.player);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_SYNCHRONIZING_WITH_PEER:
+      sprintf(buff, "Netplay Synchronzing: %d/%d", ev->u.synchronizing.count, ev->u.synchronizing.total);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_SYNCHRONIZED_WITH_PEER:
+      sprintf(buff, "Netplay Synchronized With Player: %d", ev->u.synchronized.player);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_DISCONNECTED_FROM_PEER:
+      sprintf(buff, "Netplay Player: %d Disconnected", ev->u.disconnected.player);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_RUNNING:
+      msg = "Netplay Is Running";
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_CONNECTION_INTERRUPTED:
+      sprintf(buff, "Netplay Player: %d Connection Interupted, Timeout: %d", ev->u.connection_interrupted.player,
+              ev->u.connection_interrupted.disconnect_timeout);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_CONNECTION_RESUMED:
+      sprintf(buff, "Netplay Player: %d Connection Resumed", ev->u.connection_resumed.player);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_CHAT:
+      sprintf(buff, "%s", ev->u.chat.msg);
+      msg = buff;
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_TIMESYNC:
+      Netplay::Session::GetTimer()->OnGGPOTimeSyncEvent(ev->u.timesync.frames_ahead);
+      break;
+    default:
+      sprintf(buff, "Netplay Event Code: %d", ev->code);
+      msg = buff;
+  }
+  if (!msg.empty())
+  {
+    Host::OnNetplayMessage(msg);
+    Log_InfoPrintf("%s", msg.c_str());
+  }
+  return true;
+}
+
+void _cdecl NpFreeBuffCb(void* ctx, void* buffer)
+{
+  free(buffer);
 }

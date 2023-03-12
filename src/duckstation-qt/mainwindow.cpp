@@ -51,6 +51,7 @@
 #ifdef _WIN32
 #include "common/windows_headers.h"
 #include <Dbt.h>
+#include <WinSock2.h>
 #endif
 
 Log_SetChannel(MainWindow);
@@ -106,6 +107,12 @@ MainWindow::MainWindow() : QMainWindow(nullptr)
 #if !defined(_WIN32) && !defined(__APPLE__)
   s_use_central_widget = DisplayContainer::isRunningOnWayland();
 #endif
+
+#if defined(_WIN32)
+  // Setup WinSock
+  WSADATA wd = {};
+  WSAStartup(MAKEWORD(2, 2), &wd);
+#endif
 }
 
 MainWindow::~MainWindow()
@@ -120,6 +127,8 @@ MainWindow::~MainWindow()
 
 #ifdef _WIN32
   unregisterForDeviceNotifications();
+  // Cleanup WinSock
+  WSACleanup();
 #endif
 #ifdef __APPLE__
   FrontendCommon::RemoveThemeChangeHandler(this);
@@ -1555,6 +1564,10 @@ void MainWindow::setupAdditionalUi()
   m_status_vps_widget->setFixedSize(125, 16);
   m_status_vps_widget->hide();
 
+  m_status_netplay_ping_widget = new QLabel(m_ui.statusBar);
+  m_status_netplay_ping_widget->setFixedSize(125, 16);
+  m_status_netplay_ping_widget->hide();
+
   m_ui.actionGridViewShowTitles->setChecked(m_game_list_widget->getShowGridCoverTitles());
 
   updateDebugMenuVisibility();
@@ -1759,6 +1772,7 @@ void MainWindow::updateStatusBarWidgetVisibility()
   Update(m_status_resolution_widget, s_system_valid && !s_system_paused, 0);
   Update(m_status_fps_widget, s_system_valid && !s_system_paused, 0);
   Update(m_status_vps_widget, s_system_valid && !s_system_paused, 0);
+  Update(m_status_netplay_ping_widget, s_system_valid && !s_system_paused && Netplay::Session::IsActive(), 0);
 }
 
 void MainWindow::updateWindowTitle()
@@ -1978,6 +1992,7 @@ void MainWindow::connectSignals()
   connect(m_ui.actionCheatManager, &QAction::triggered, this, &MainWindow::onToolsCheatManagerTriggered);
   connect(m_ui.actionCPUDebugger, &QAction::triggered, this, &MainWindow::openCPUDebugger);
   connect(m_ui.actionOpenDataDirectory, &QAction::triggered, this, &MainWindow::onToolsOpenDataDirectoryTriggered);
+  connect(m_ui.actionCreateNetplaySession, &QAction::triggered, this, &MainWindow::onNetplaySessionCreation);
   connect(m_ui.actionGridViewShowTitles, &QAction::triggered, m_game_list_widget, &GameListWidget::setShowCoverTitles);
   connect(m_ui.actionGridViewZoomIn, &QAction::triggered, m_game_list_widget, [this]() {
     if (isShowingGameList())
@@ -2743,6 +2758,14 @@ void MainWindow::onCPUDebuggerClosed()
   Assert(m_debugger_window);
   m_debugger_window->deleteLater();
   m_debugger_window = nullptr;
+}
+
+void MainWindow::onNetplaySessionCreation()
+{
+  m_netplay_session_dialog = new NetplaySessionDialog(this, g_emu_thread, &m_ui, DISC_IMAGE_FILTER);
+  m_netplay_session_dialog->setWindowTitle("Netplay Session");
+  m_netplay_session_dialog->setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint);
+  m_netplay_session_dialog->show();
 }
 
 void MainWindow::onToolsOpenDataDirectoryTriggered()

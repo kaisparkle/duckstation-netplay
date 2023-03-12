@@ -94,12 +94,15 @@
     <ClCompile Include="coverdownloaddialog.cpp" />
     <ClCompile Include="$(IntDir)moc_coverdownloaddialog.cpp" />
     <ClCompile Include="colorpickerbutton.cpp" />
+    <ClCompile Include="$(IntDir)moc_colorpickerbutton.cpp" />
+    <ClCompile Include="netplaysessiondialog.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qtutils.h" />
     <ClInclude Include="settingwidgetbinder.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="controllersettingwidgetbinder.h" />
+    <ClInclude Include="netplaysessiondialog.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="resources">
@@ -218,6 +221,7 @@
     <None Include="translations\duckstation-qt_es-es.ts">
       <Filter>translations</Filter>
     </None>
+    <None Include="netplaysessiondialog.ui" />
   </ItemGroup>
   <ItemGroup>
     <QtTs Include="translations\duckstation-qt_de.ts">

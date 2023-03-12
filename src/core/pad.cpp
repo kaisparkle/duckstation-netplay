@@ -10,6 +10,7 @@
 #include "interrupt_controller.h"
 #include "memory_card.h"
 #include "multitap.h"
+#include "netplay.h"
 #include "system.h"
 #include "types.h"
 #include "util/state_wrapper.h"
@@ -353,8 +354,9 @@ bool Pad::DoState(StateWrapper& sw)
     if (!DoStateController(sw, i))
       return false;
 
-    if (!DoStateMemcard(sw, i))
-      return false;
+    if (!Netplay::Session::IsActive())
+      if (!DoStateMemcard(sw, i))
+        return false;
   }
 
   if (sw.GetVersion() >= 50)
