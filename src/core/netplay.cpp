@@ -115,6 +115,7 @@ void Netplay::Session::RunFrame(int32_t& time_to_wait)
     result = SyncInput(inputs, &disconnectFlags);
     if (GGPO_SUCCEEDED(result))
     {
+      // enable again when rolling back done
       SPU::SetAudioOutputMuted(false);
       System::NetplayAdvanceFrame(inputs, disconnectFlags);
     }
