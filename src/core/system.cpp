@@ -4449,7 +4449,7 @@ void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
   Netplay::Session::AdvanceFrame();
 }
 
-bool _cdecl NpBeginGameCb(void* ctx, const char* game_name)
+bool NpBeginGameCb(void* ctx, const char* game_name)
 {
   // close system if its already running
   if (System::IsValid())
@@ -4460,7 +4460,7 @@ bool _cdecl NpBeginGameCb(void* ctx, const char* game_name)
   return System::BootSystem(param);
 }
 
-bool _cdecl NpAdvFrameCb(void* ctx, int flags)
+bool NpAdvFrameCb(void* ctx, int flags)
 {
   s_netplay_rollback_frames--;
   // Log_InfoPrintf("rbf: %u", s_netplay_rollback_frames);
@@ -4472,7 +4472,7 @@ bool _cdecl NpAdvFrameCb(void* ctx, int flags)
   return true;
 }
 
-bool _cdecl NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame)
+bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame)
 {
   bool result = false;
   // give ggpo something so it doesnt complain.
@@ -4497,7 +4497,7 @@ bool _cdecl NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, 
   return result;
 }
 
-bool _cdecl NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load)
+bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load)
 {
   // Disable Audio For upcoming rollback
   SPU::SetAudioOutputMuted(true);
@@ -4507,7 +4507,7 @@ bool _cdecl NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, in
   return result;
 }
 
-bool _cdecl NpOnEventCb(void* ctx, GGPOEvent* ev)
+bool NpOnEventCb(void* ctx, GGPOEvent* ev)
 {
   char buff[128];
   std::string msg;
@@ -4560,7 +4560,7 @@ bool _cdecl NpOnEventCb(void* ctx, GGPOEvent* ev)
   return true;
 }
 
-void _cdecl NpFreeBuffCb(void* ctx, void* buffer)
+void NpFreeBuffCb(void* ctx, void* buffer)
 {
   free(buffer);
 }

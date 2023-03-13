@@ -3,22 +3,24 @@
 #ifndef _NETPLAY_H
 #define _NETPLAY_H
 
+#include <array>
+#include <ggponet.h>
 #include <stdint.h>
 #include <string.h>
-#include <array>
 #include <string>
-#include <ggponet.h>
 
 #include "digital_controller.h"
 #include "types.h"
 
 // C GGPO Event Callbacks. Should be defined in system.cpp
-bool _cdecl NpAdvFrameCb(void* ctx, int flags);
-bool _cdecl NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame);
-bool _cdecl NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load);
-bool _cdecl NpBeginGameCb(void* ctx, const char* game_name);
-void _cdecl NpFreeBuffCb(void* ctx, void* buffer);
-bool _cdecl NpOnEventCb(void* ctx, GGPOEvent* ev);
+extern "C" {
+bool NpAdvFrameCb(void* ctx, int flags);
+bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame);
+bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load);
+bool NpBeginGameCb(void* ctx, const char* game_name);
+void NpFreeBuffCb(void* ctx, void* buffer);
+bool NpOnEventCb(void* ctx, GGPOEvent* ev);
+}
 
 namespace Netplay {
 
@@ -50,7 +52,8 @@ public:
   Session();
   ~Session();
   // l = local, r = remote
-  static int32_t Start(int32_t lhandle, uint16_t lport, std::string& raddr, uint16_t rport, int32_t ldelay, uint32_t pred);
+  static int32_t Start(int32_t lhandle, uint16_t lport, std::string& raddr, uint16_t rport, int32_t ldelay,
+                       uint32_t pred);
 
   static void Close();
   static bool IsActive();
