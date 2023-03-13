@@ -4445,10 +4445,7 @@ void System::NetplayLoop()
 void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
 {
   Netplay::Session::SetInputs(inputs);
-  if (s_netplay_rollback_frames == 0)
-    System::DoRunFrame();
-  else
-    CPU::CodeCache::ExecuteRecompiler();
+  System::DoRunFrame();
   Netplay::Session::AdvanceFrame();
 }
 
