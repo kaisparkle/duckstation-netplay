@@ -28,6 +28,7 @@ add_library(frontend-common
 )
 
 target_link_libraries(frontend-common PUBLIC core common imgui tinyxml2 rapidjson scmversion)
+target_link_libraries(frontend-common PRIVATE ggpo-x)
 
 if(ENABLE_CUBEB)
   target_sources(frontend-common PRIVATE
