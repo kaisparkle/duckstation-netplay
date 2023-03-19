@@ -1065,6 +1065,25 @@ void EmuThread::reloadPostProcessingShaders()
   System::ReloadPostProcessingShaders();
 }
 
+void EmuThread::startNetplaySession() {
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "startNetplaySession", Qt::QueuedConnection);
+    return;
+  }
+  System::StartNetplaySession();
+}
+
+void EmuThread::stopNetplaySession() 
+{
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "stopNetplaySession", Qt::QueuedConnection);
+    return;
+  }
+  System::StopNetplaySession();
+}
+
 void EmuThread::runOnEmuThread(std::function<void()> callback)
 {
   callback();

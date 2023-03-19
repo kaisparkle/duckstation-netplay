@@ -3,6 +3,7 @@
 #include <QtWidgets/qmessagebox.h>
 #include <common/log.h>
 #include <core/controller.h>
+#include <qthost.h>
 
 Log_SetChannel(NetplayWidget);
 
@@ -147,9 +148,13 @@ bool NetplayWidget::CheckControllersSet()
 void NetplayWidget::StartSession(bool direct_ip)
 {
   Log_InfoPrint("Start Session!");
+  if (g_emu_thread)
+    g_emu_thread->startNetplaySession();
 }
 
 void NetplayWidget::StopSession()
 {
   Log_InfoPrint("Stop Session!");
+  if (g_emu_thread)
+    g_emu_thread->stopNetplaySession();
 }

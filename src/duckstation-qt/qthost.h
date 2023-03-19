@@ -187,6 +187,8 @@ public Q_SLOTS:
   void setCheatEnabled(quint32 index, bool enabled);
   void applyCheat(quint32 index);
   void reloadPostProcessingShaders();
+  void startNetplaySession();
+  void stopNetplaySession();
 
 private Q_SLOTS:
   void stopInThread();

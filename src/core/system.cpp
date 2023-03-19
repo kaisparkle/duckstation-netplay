@@ -4431,3 +4431,13 @@ void System::SetTimerResolutionIncreased(bool enabled)
     timeEndPeriod(1);
 #endif
 }
+
+void System::StartNetplaySession()
+{
+  Log_InfoPrint("Start Netplay!");
+}
+
+void System::StopNetplaySession()
+{
+  Log_InfoPrint("Stop Netplay!");
+}

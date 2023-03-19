@@ -452,6 +452,9 @@ void UpdateMemorySaveStateSettings();
 bool LoadRewindState(u32 skip_saves = 0, bool consume_state = true);
 void SetRunaheadReplayFlag();
 
+/// Netplay
+void StartNetplaySession();
+void StopNetplaySession();
 } // namespace System
 
 namespace Host {
