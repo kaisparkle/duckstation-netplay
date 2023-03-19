@@ -2089,6 +2089,9 @@ void MainWindow::connectSignals()
   addThemeToMenu(tr("Dark Fusion (Blue)"), QStringLiteral("darkfusionblue"));
   addThemeToMenu(tr("QDarkStyle"), QStringLiteral("qdarkstyle"));
   updateMenuSelectedTheme();
+
+  // Netplay UI , TODO
+  connect(m_ui.actionCreateNetplaySession, &QAction::triggered, this, &MainWindow::onNetplaySessionCreated);
 }
 
 void MainWindow::addThemeToMenu(const QString& name, const QString& key)
@@ -2750,6 +2753,28 @@ void MainWindow::onCPUDebuggerClosed()
   Assert(m_debugger_window);
   m_debugger_window->deleteLater();
   m_debugger_window = nullptr;
+}
+
+void MainWindow::onNetplaySessionCreated()
+{
+  Assert(!m_netplay_window);
+
+  m_netplay_window = new NetplayWidget(this);
+  m_netplay_window->setWindowIcon(windowIcon());
+  m_netplay_window->setWindowTitle("Netplay Session");
+  m_netplay_window->setWindowFlags(windowFlags() | Qt::WindowMinimizeButtonHint);
+  m_netplay_window->show();
+
+  m_ui.menuNetplay->setDisabled(true);
+
+  connect(m_netplay_window, &NetplayWidget::finished, [this]() {
+    Assert(m_netplay_window);
+
+    m_netplay_window->deleteLater();
+    m_netplay_window = nullptr;
+
+    m_ui.menuNetplay->setDisabled(false);
+  });
 }
 
 void MainWindow::onToolsOpenDataDirectoryTriggered()

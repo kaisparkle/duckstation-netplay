@@ -134,6 +134,9 @@ set(SRCS
   settingsdialog.h
   settingsdialog.ui
   settingwidgetbinder.h
+  netplaywidget.cpp
+  netplaywidget.h
+  netplaywidget.ui
 )
 
 if(ENABLE_CHEEVOS)
