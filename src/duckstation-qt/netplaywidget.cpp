@@ -9,7 +9,6 @@ Log_SetChannel(NetplayWidget);
 
 NetplayWidget::NetplayWidget(QWidget* parent) : QDialog(parent), m_ui(new Ui::NetplayWidget)
 {
-
   m_ui->setupUi(this);
   FillGameList();
   SetupConnections();
@@ -19,6 +18,7 @@ NetplayWidget::NetplayWidget(QWidget* parent) : QDialog(parent), m_ui(new Ui::Ne
 
 NetplayWidget::~NetplayWidget()
 {
+  StopSession();
   delete m_ui;
 }
 
@@ -29,7 +29,9 @@ void NetplayWidget::FillGameList()
   for (s32 i = 0; i < numGames; i++)
   {
     const auto& entry = GameList::GetEntryByIndex(i);
-    m_ui->cbSelectedGame->addItem(QString::fromStdString("[" + entry->serial + "] " + entry->title));
+    std::string baseFilename = entry->path.substr(entry->path.find_last_of("/\\") + 1);
+    m_ui->cbSelectedGame->addItem(
+      QString::fromStdString("[" + entry->serial + "] " + entry->title + " | " + baseFilename));
     m_available_games.push_back(entry);
   }
 }
@@ -47,9 +49,19 @@ void NetplayWidget::SetupConnections()
     m_ui->btnTraversalJoin->setEnabled(!action);
     m_ui->btnTraversalHost->setEnabled(!action);
   });
-
+  // actions to be taken when stopping a session.
+  auto fnOnStopSession = [this]() {
+    m_ui->btnSendMsg->setEnabled(false);
+    m_ui->tbNetplayChat->setEnabled(false);
+    m_ui->btnStopSession->setEnabled(false);
+    m_ui->btnStartSession->setEnabled(true);
+    m_ui->btnTraversalHost->setEnabled(true);
+    m_ui->btnTraversalJoin->setEnabled(true);
+    m_ui->lblHostCodeResult->setText("XXXXXXXXX-");
+    StopSession();
+  };
   // check session when start button pressed if there is the needed info depending on the connection mode
-  auto fnCheckValid = [this]() {
+  auto fnCheckValid = [this, fnOnStopSession]() {
     const bool action = (m_ui->cbConnMode->currentIndex() == 0 ? true : false);
     if (CheckInfoValid(action))
     {
@@ -59,7 +71,8 @@ void NetplayWidget::SetupConnections()
       m_ui->btnStartSession->setEnabled(false);
       m_ui->btnTraversalHost->setEnabled(false);
       m_ui->btnTraversalJoin->setEnabled(false);
-      StartSession(action);
+      if (!StartSession(action))
+        fnOnStopSession();
     }
   };
   connect(m_ui->btnStartSession, &QPushButton::pressed, fnCheckValid);
@@ -145,16 +158,25 @@ bool NetplayWidget::CheckControllersSet()
   return !err;
 }
 
-void NetplayWidget::StartSession(bool direct_ip)
+bool NetplayWidget::StartSession(bool direct_ip)
 {
-  Log_InfoPrint("Start Session!");
-  if (g_emu_thread)
-    g_emu_thread->startNetplaySession();
+  if (!g_emu_thread)
+    return false;
+  int localHandle = m_ui->cbLocalPlayer->currentIndex();
+  int inputDelay = m_ui->sbInputDelay->value();
+  quint16 localPort = m_ui->sbLocalPort->value();
+  const QString& remoteAddr = m_ui->leRemoteAddr->text();
+  quint16 remotePort = m_ui->sbRemotePort->value();
+  const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]->path);
+  if (!direct_ip)
+    return false; // TODO: Handle Nat Traversal and use that information by overriding the information above.
+  g_emu_thread->startNetplaySession(localHandle, localPort, remoteAddr, remotePort, inputDelay, gamePath);
+  return true;
 }
 
 void NetplayWidget::StopSession()
 {
-  Log_InfoPrint("Stop Session!");
-  if (g_emu_thread)
-    g_emu_thread->stopNetplaySession();
+  if (!g_emu_thread)
+    return;
+  g_emu_thread->stopNetplaySession();
 }

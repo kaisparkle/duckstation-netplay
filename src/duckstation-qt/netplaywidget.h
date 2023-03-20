@@ -22,7 +22,7 @@ private:
   void SetupConstraints();
   bool CheckInfoValid(bool direct_ip);
   bool CheckControllersSet();
-  void StartSession(bool direct_ip);
+  bool StartSession(bool direct_ip);
   void StopSession();
 
 private:

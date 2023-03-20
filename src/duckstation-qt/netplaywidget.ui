@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>698</width>
+    <width>700</width>
     <height>448</height>
    </rect>
   </property>
@@ -220,8 +220,8 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="lblRemotePort">
+      <item row="1" column="1" colspan="2">
+       <widget class="QLineEdit" name="leRemoteAddr">
         <property name="font">
          <font>
           <pointsize>11</pointsize>
@@ -229,7 +229,20 @@
          </font>
         </property>
         <property name="text">
-         <string>Remote Port :</string>
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="lblLocalPort">
+        <property name="font">
+         <font>
+          <pointsize>11</pointsize>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="text">
+         <string>Local Port :</string>
         </property>
        </widget>
       </item>
@@ -246,8 +259,8 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="lblLocalPort">
+      <item row="2" column="0">
+       <widget class="QLabel" name="lblRemotePort">
         <property name="font">
          <font>
           <pointsize>11</pointsize>
@@ -255,7 +268,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Local Port :</string>
+         <string>Remote Port :</string>
         </property>
        </widget>
       </item>
@@ -294,19 +307,6 @@
         </property>
         <property name="value">
          <number>1000</number>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1" colspan="2">
-       <widget class="QLineEdit" name="leRemoteAddr">
-        <property name="font">
-         <font>
-          <pointsize>11</pointsize>
-          <kerning>true</kerning>
-         </font>
-        </property>
-        <property name="text">
-         <string>127.0.0.1</string>
         </property>
        </widget>
       </item>
@@ -398,7 +398,7 @@
      </font>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="tabJoin">
      <attribute name="title">
@@ -407,8 +407,8 @@
      <widget class="QPushButton" name="btnTraversalJoin">
       <property name="geometry">
        <rect>
-        <x>240</x>
-        <y>50</y>
+        <x>220</x>
+        <y>60</y>
         <width>81</width>
         <height>31</height>
        </rect>
@@ -428,7 +428,7 @@
        <rect>
         <x>10</x>
         <y>20</y>
-        <width>311</width>
+        <width>291</width>
         <height>28</height>
        </rect>
       </property>
@@ -476,7 +476,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>10</y>
+        <y>20</y>
         <width>81</width>
         <height>31</height>
        </rect>
@@ -495,9 +495,9 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>50</y>
-        <width>201</width>
-        <height>22</height>
+        <y>60</y>
+        <width>281</width>
+        <height>31</height>
        </rect>
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout">

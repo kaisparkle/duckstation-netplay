@@ -103,7 +103,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)lib\ggpo;%(AdditionalIncludeDirectories);$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)lib\ggpo;%(AdditionalIncludeDirectories);$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -204,7 +204,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)lib\ggpo;%(AdditionalIncludeDirectories);$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;$(ProjectDir)lib\ggpo;%(AdditionalIncludeDirectories);$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -313,7 +313,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTCG|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>;$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>;$(SolutionDir)dep\ggpo-x\include;$(SolutionDir)dep\ggpo-x\lib\ggpo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

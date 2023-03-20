@@ -50,6 +50,7 @@
 #ifdef _WIN32
 #include "common/windows_headers.h"
 #include <Dbt.h>
+#include <WinSock2.h>
 #endif
 
 Log_SetChannel(MainWindow);
@@ -105,6 +106,12 @@ MainWindow::MainWindow() : QMainWindow(nullptr)
 #if !defined(_WIN32) && !defined(__APPLE__)
   s_use_central_widget = DisplayContainer::isRunningOnWayland();
 #endif
+
+#if defined(_WIN32)
+  // Setup WinSock
+  WSADATA wd = {};
+  WSAStartup(MAKEWORD(2, 2), &wd);
+#endif
 }
 
 MainWindow::~MainWindow()
@@ -119,6 +126,8 @@ MainWindow::~MainWindow()
 
 #ifdef _WIN32
   unregisterForDeviceNotifications();
+  // Cleanup WinSock
+  WSACleanup();
 #endif
 #ifdef __APPLE__
   FrontendCommon::RemoveThemeChangeHandler(this);
@@ -1556,8 +1565,12 @@ void MainWindow::setupAdditionalUi()
   m_status_fps_widget->hide();
 
   m_status_vps_widget = new QLabel(m_ui.statusBar);
-  m_status_vps_widget->setFixedSize(125, 16);
+  m_status_vps_widget->setFixedSize(110, 16);
   m_status_vps_widget->hide();
+
+  m_status_ping_widget = new QLabel(m_ui.statusBar);
+  m_status_ping_widget->setFixedSize(110, 16);
+  m_status_ping_widget->hide();
 
   m_settings_toolbar_menu = new QMenu(m_ui.toolBar);
   m_settings_toolbar_menu->addAction(m_ui.actionSettings);

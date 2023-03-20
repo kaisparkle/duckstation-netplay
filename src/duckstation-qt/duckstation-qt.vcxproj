@@ -354,12 +354,15 @@
     <Link>
       <AdditionalDependencies>
         $(RootBuildDir)frontend-common\frontend-common.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies>
-        $(QtEntryPointLib);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ws2_32.lib;$(RootBuildDir)ggpo-x\ggpo-x.lib;$(QtEntryPointLib);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <DisableSpecificWarnings>
         4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)dep\ggpo-x\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='DebugFast|x64'">$(SolutionDir)dep\ggpo-x\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)dep\ggpo-x\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='ReleaseLTCG|x64'">$(SolutionDir)dep\ggpo-x\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="..\..\dep\msvc\vsprops\Targets.props" />
