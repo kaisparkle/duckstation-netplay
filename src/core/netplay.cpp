@@ -91,13 +91,9 @@ void Netplay::Session::AdvanceFrame()
   ggpo_advance_frame(s_net_session.p_ggpo, 0);
 }
 
-void Netplay::Session::RunFrame(Common::Timer::Value& waitTime)
+void Netplay::Session::RunFrame(int32_t& waitTime)
 {
   bool needIdle = true;
-  // poll input
-  Host::PumpMessagesOnCPUThread();
-  if (!System::IsValid())
-    return;
   // run game
   auto result = GGPO_OK;
   int disconnectFlags = 0;
@@ -120,9 +116,11 @@ void Netplay::Session::RunFrame(Common::Timer::Value& waitTime)
       needIdle = false;
     }
   }
-  waitTime = Common::Timer::Value(Netplay::Session::GetTimer()->UsToWaitThisLoop());
+
   if (needIdle)
     RunIdle();
+
+  waitTime = Netplay::Session::GetTimer()->UsToWaitThisLoop();
 }
 
 int32_t Netplay::Session::CurrentFrame()

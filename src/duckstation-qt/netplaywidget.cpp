@@ -78,18 +78,8 @@ void NetplayWidget::SetupConnections()
   connect(m_ui->btnStartSession, &QPushButton::pressed, fnCheckValid);
   connect(m_ui->btnTraversalJoin, &QPushButton::pressed, fnCheckValid);
   connect(m_ui->btnTraversalHost, &QPushButton::pressed, fnCheckValid);
-
   // when pressed revert back to the previous ui state so people can start a new session.
-  connect(m_ui->btnStopSession, &QPushButton::pressed, [this]() {
-    m_ui->btnSendMsg->setEnabled(false);
-    m_ui->tbNetplayChat->setEnabled(false);
-    m_ui->btnStopSession->setEnabled(false);
-    m_ui->btnStartSession->setEnabled(true);
-    m_ui->btnTraversalHost->setEnabled(true);
-    m_ui->btnTraversalJoin->setEnabled(true);
-    m_ui->lblHostCodeResult->setText("XXXXXXXXX-");
-    StopSession();
-  });
+  connect(m_ui->btnStopSession, &QPushButton::pressed, fnOnStopSession);
 }
 
 void NetplayWidget::SetupConstraints()

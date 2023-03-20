@@ -1568,20 +1568,25 @@ void System::Execute()
   }
 }
 
-void System::ExecuteNetplay() 
+void System::ExecuteNetplay()
 {
-  Common::Timer::Value start, next, now;
-  start = next = now = Common::Timer::GetCurrentValue();
-  while (System::IsRunning() && g_settings.netplay_active)
+  // frame timing
+  std::chrono::steady_clock::time_point start, next, now;
+  start = next = now = std::chrono::steady_clock::now();
+  while (Netplay::Session::IsActive() && System::IsRunning())
   {
-    now = Common::Timer::GetCurrentValue();
+    now = std::chrono::steady_clock::now();
     if (now >= next)
     {
-      Common::Timer::Value waitTime;
-      Netplay::Session::RunFrame(waitTime);
-      next = now + waitTime;
-      s_next_frame_time += next;
-      // display related.
+      s32 timeToWait;
+      Netplay::Session::RunFrame(timeToWait);
+      next = now + std::chrono::microseconds(timeToWait);
+      s_next_frame_time += timeToWait;
+      // this can shut us down
+      Host::PumpMessagesOnCPUThread();
+      if (!IsValid() || !Netplay::Session::IsActive())
+        break;
+
       const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
       Host::RenderDisplay(skip_present);
       if (!skip_present && g_host_display->IsGPUTimingEnabled())
@@ -1589,7 +1594,6 @@ void System::ExecuteNetplay()
         s_accumulated_gpu_time += g_host_display->GetAndResetAccumulatedGPUTime();
         s_presents_since_last_update++;
       }
-      // perf counters
       System::UpdatePerformanceCounters();
     }
   }
@@ -2237,7 +2241,8 @@ void System::RunFrame()
   if (s_runahead_frames > 0)
     DoRunahead();
 
-  DoRunFrame();
+  if (!Netplay::Session::IsActive())
+    DoRunFrame();
 
   s_next_frame_time += s_frame_period;
 
@@ -4466,9 +4471,8 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
                                  s32 input_delay, std::string& game_path)
 {
   // dont want to start a session when theres already one going on.
-  if (g_settings.netplay_active)
+  if (Netplay::Session::IsActive())
     return;
-  g_settings.netplay_active = true;
   // set game path for later loading during the begin game callback
   Netplay::Session::SetGamePath(game_path);
   // set netplay timer
@@ -4484,11 +4488,10 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
 
 void System::StopNetplaySession()
 {
-  if (!g_settings.netplay_active)
+  if (!Netplay::Session::IsActive())
     return;
   s_netplay_states.clear();
   Netplay::Session::Close();
-  g_settings.netplay_active = false;
 }
 
 void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
@@ -4598,7 +4601,7 @@ bool NpOnEventCb(void* ctx, GGPOEvent* ev)
   }
   if (!msg.empty())
   {
-   // Host::OnNetplayMessage(msg);
+    Host::OnNetplayMessage(msg);
     Log_InfoPrintf("%s", msg.c_str());
   }
   return true;

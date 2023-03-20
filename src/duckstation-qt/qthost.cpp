@@ -461,6 +461,12 @@ void EmuThread::startFullscreenUI()
   wakeThread();
 }
 
+void Host::OnNetplayMessage(std::string& message)
+{
+  QString msg(message.c_str());
+  emit g_emu_thread->onNetplayMessage(msg);
+}
+
 void EmuThread::stopFullscreenUI()
 {
   if (!isOnThread())
@@ -1087,8 +1093,7 @@ void EmuThread::sendNetplayMessage(const QString& message)
     QMetaObject::invokeMethod(this, "sendNetplayMessage", Qt::QueuedConnection, Q_ARG(const QString&, message));
     return;
   }
-  auto msg = message.toStdString().c_str();
-  Netplay::Session::SendMsg(msg);
+  Netplay::Session::SendMsg(message.toStdString().c_str());
 }
 
 void EmuThread::stopNetplaySession()
@@ -1452,7 +1457,7 @@ void EmuThread::run()
   {
     if (System::IsRunning())
     {
-      if (g_settings.netplay_active)
+      if (Netplay::Session::IsActive())
         System::ExecuteNetplay();
       else
         System::Execute();

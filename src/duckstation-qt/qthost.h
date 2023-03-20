@@ -143,6 +143,7 @@ Q_SIGNALS:
   void achievementsRefreshed(quint32 id, const QString& game_info_string, quint32 total, quint32 points);
   void achievementsChallengeModeChanged();
   void cheatEnabled(quint32 index, bool enabled);
+  void onNetplayMessage(const QString& message);
 
 public Q_SLOTS:
   void setDefaultSettings(bool system = true, bool controller = true);

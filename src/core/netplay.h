@@ -61,8 +61,8 @@ public:
   static void RunIdle();
 
   static void AdvanceFrame();
-  static void RunFrame(Common::Timer::Value& waitTime);
-  int32_t CurrentFrame();
+  static void RunFrame(int32_t& waitTime);
+  static int32_t CurrentFrame();
 
   static void CollectInput(uint32_t slot, uint32_t bind, float value);
   static Netplay::Input ReadLocalInput();

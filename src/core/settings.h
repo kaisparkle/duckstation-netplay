@@ -91,8 +91,6 @@ struct Settings
   u32 rewind_save_slots = 10;
   u32 runahead_frames = 0;
 
-  bool netplay_active = false;
-
   GPURenderer gpu_renderer = DEFAULT_GPU_RENDERER;
   std::string gpu_adapter;
   std::string display_post_process_chain;
