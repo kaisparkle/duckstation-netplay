@@ -461,6 +461,12 @@ void EmuThread::startFullscreenUI()
   wakeThread();
 }
 
+void Host::OnNetplayMessage(std::string& message)
+{
+  QString msg(message.c_str());
+  emit g_emu_thread->onNetplayMessage(msg);
+}
+
 void EmuThread::stopFullscreenUI()
 {
   if (!isOnThread())
@@ -1065,6 +1071,41 @@ void EmuThread::reloadPostProcessingShaders()
   System::ReloadPostProcessingShaders();
 }
 
+void EmuThread::startNetplaySession(int local_handle, quint16 local_port, const QString& remote_addr,
+                                    quint16 remote_port, int input_delay, const QString& game_path)
+{
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "startNetplaySession", Qt::QueuedConnection, Q_ARG(int, local_handle),
+                              Q_ARG(quint16, local_port), Q_ARG(const QString&, remote_addr),
+                              Q_ARG(quint16, remote_port), Q_ARG(int, input_delay), Q_ARG(const QString&, game_path));
+    return;
+  }
+  auto remAddr = remote_addr.trimmed().toStdString();
+  auto gamePath = game_path.trimmed().toStdString();
+  System::StartNetplaySession(local_handle, local_port, remAddr, remote_port, input_delay, gamePath);
+}
+
+void EmuThread::sendNetplayMessage(const QString& message)
+{
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "sendNetplayMessage", Qt::QueuedConnection, Q_ARG(const QString&, message));
+    return;
+  }
+  Netplay::Session::SendMsg(message.toStdString().c_str());
+}
+
+void EmuThread::stopNetplaySession()
+{
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "stopNetplaySession", Qt::QueuedConnection);
+    return;
+  }
+  System::StopNetplaySession();
+}
+
 void EmuThread::runOnEmuThread(std::function<void()> callback)
 {
   callback();
@@ -1416,7 +1457,10 @@ void EmuThread::run()
   {
     if (System::IsRunning())
     {
-      System::Execute();
+      if (Netplay::Session::IsActive())
+        System::ExecuteNetplay();
+      else
+        System::Execute();
     }
     else
     {
@@ -1658,6 +1702,14 @@ void EmuThread::updatePerformanceCounters()
       Q_ARG(const QString&, tr("Video: %1 FPS (%2%)").arg(vfps, 0, 'f', 0).arg(speed, 0, 'f', 0)));
     m_last_speed = speed;
     m_last_video_fps = vfps;
+  }
+
+  const s32 ping = Netplay::Session::GetPing();
+  if (m_last_ping != ping)
+  {
+    QMetaObject::invokeMethod(g_main_window->getStatusPingWidget(), "setText", Qt::QueuedConnection,
+                              Q_ARG(const QString&, tr("Netplay Ping: %1 ").arg(ping, 0, 'f', 0)));
+    m_last_ping = ping;
   }
 }
 

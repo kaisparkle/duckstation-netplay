@@ -1,0 +1,16 @@
+﻿  common_host.cpp
+  d3d11_host_display.cpp
+  cubeb_audio_stream.cpp
+  game_list.cpp
+  achievements.cpp
+  dinput_source.cpp
+  opengl_host_display.cpp
+  vulkan_host_display.cpp
+  imgui_overlays.cpp
+  input_manager.cpp
+  imgui_manager.cpp
+D:\Documenten\duck-net\duckstation-netplay\src\frontend-common\input_manager.cpp(977,63): warning C4244: 'argument': conversion from 'float' to 's32', possible loss of data
+  fullscreen_ui.cpp
+  win32_raw_input_source.cpp
+  xaudio2_audio_stream.cpp
+  frontend-common.vcxproj -> D:\Documenten\duck-net\duckstation-netplay\build\ReleaseLTCG-x64\frontend-common\frontend-common.lib
