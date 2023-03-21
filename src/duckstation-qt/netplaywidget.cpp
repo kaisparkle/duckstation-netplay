@@ -116,6 +116,15 @@ void NetplayWidget::SetupConstraints()
 
 bool NetplayWidget::CheckInfoValid(bool direct_ip)
 {
+  if (!direct_ip)
+  {
+    QMessageBox errBox;
+    errBox.setFixedSize(500, 200);
+    errBox.information(this, "Netplay Session", "Traversal Mode is not supported yet!");
+    errBox.show();
+    return false;
+  }
+
   bool err = false;
   // check nickname, game selected and player selected.
   if (m_ui->lePlayerName->text().trimmed().isEmpty() || m_ui->cbSelectedGame->currentIndex() == 0 ||
@@ -152,7 +161,9 @@ bool NetplayWidget::CheckControllersSet()
   {
     const Controller::ControllerInfo* cinfo = Controller::GetControllerInfo(g_settings.controller_types[i]);
     if (!cinfo || cinfo->type != ControllerType::DigitalController)
+    {
       err = true;
+    }
   }
   // if an err has been found throw popup
   if (err)
