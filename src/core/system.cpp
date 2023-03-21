@@ -1539,6 +1539,9 @@ void System::Execute()
     else
       System::RunFrames();
 
+    // return to the netplay loop if active
+    if (Netplay::Session::IsActive())
+      return;
     // this can shut us down
     Host::PumpMessagesOnCPUThread();
     if (!IsValid())
@@ -1585,7 +1588,7 @@ void System::ExecuteNetplay()
       // this can shut us down
       Host::PumpMessagesOnCPUThread();
       if (!IsValid() || !Netplay::Session::IsActive())
-        break;
+        return;
 
       const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
       Host::RenderDisplay(skip_present);

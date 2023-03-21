@@ -38,6 +38,22 @@ void NetplayWidget::FillGameList()
 
 void NetplayWidget::SetupConnections()
 {
+  // connect netplay window messages
+  connect(g_emu_thread, &EmuThread::onNetplayMessage,
+          [this](const QString& message) { m_ui->lwChatWindow->addItem(message.trimmed()); });
+
+  // connect sending messages when the chat button has been pressed
+  connect(m_ui->btnSendMsg, &QPushButton::pressed, [this]() {
+    // check if message aint empty and the complete message ( message + name + ":" + space) is below 120 characters
+    auto msg = m_ui->tbNetplayChat->toPlainText().trimmed();
+    QString completeMsg = m_ui->lePlayerName->text().trimmed() + ": " + msg;
+    if (completeMsg.length() > 120)
+      return;
+    m_ui->lwChatWindow->addItem(completeMsg);
+    m_ui->tbNetplayChat->clear();
+    g_emu_thread->sendNetplayMessage(completeMsg);
+  });
+
   // switch between DIRECT IP and traversal options
   connect(m_ui->cbConnMode, &QComboBox::currentIndexChanged, [this]() {
     // zero is DIRECT IP mode
@@ -49,6 +65,7 @@ void NetplayWidget::SetupConnections()
     m_ui->btnTraversalJoin->setEnabled(!action);
     m_ui->btnTraversalHost->setEnabled(!action);
   });
+
   // actions to be taken when stopping a session.
   auto fnOnStopSession = [this]() {
     m_ui->btnSendMsg->setEnabled(false);
@@ -60,6 +77,7 @@ void NetplayWidget::SetupConnections()
     m_ui->lblHostCodeResult->setText("XXXXXXXXX-");
     StopSession();
   };
+
   // check session when start button pressed if there is the needed info depending on the connection mode
   auto fnCheckValid = [this, fnOnStopSession]() {
     const bool action = (m_ui->cbConnMode->currentIndex() == 0 ? true : false);
@@ -84,6 +102,7 @@ void NetplayWidget::SetupConnections()
 
 void NetplayWidget::SetupConstraints()
 {
+  m_ui->lwChatWindow->setWordWrap(true);
   m_ui->sbLocalPort->setRange(0, 65535);
   m_ui->sbRemotePort->setRange(0, 65535);
   m_ui->sbInputDelay->setRange(0, 10);
@@ -152,14 +171,17 @@ bool NetplayWidget::StartSession(bool direct_ip)
 {
   if (!g_emu_thread)
     return false;
+
   int localHandle = m_ui->cbLocalPlayer->currentIndex();
   int inputDelay = m_ui->sbInputDelay->value();
   quint16 localPort = m_ui->sbLocalPort->value();
   const QString& remoteAddr = m_ui->leRemoteAddr->text();
   quint16 remotePort = m_ui->sbRemotePort->value();
   const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]->path);
+
   if (!direct_ip)
     return false; // TODO: Handle Nat Traversal and use that information by overriding the information above.
+
   g_emu_thread->startNetplaySession(localHandle, localPort, remoteAddr, remotePort, inputDelay, gamePath);
   return true;
 }
