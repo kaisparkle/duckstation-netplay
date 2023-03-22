@@ -1539,12 +1539,9 @@ void System::Execute()
     else
       System::RunFrames();
 
-    // return to the netplay loop if active
-    if (Netplay::Session::IsActive())
-      return;
     // this can shut us down
     Host::PumpMessagesOnCPUThread();
-    if (!IsValid())
+    if (!IsValid() || Netplay::Session::IsActive())
       return;
 
     if (s_frame_step_request)
@@ -1582,13 +1579,13 @@ void System::ExecuteNetplay()
     if (now >= next)
     {
       s32 timeToWait;
+      Host::PumpMessagesOnCPUThread();
       Netplay::Session::RunFrame(timeToWait);
       next = now + std::chrono::microseconds(timeToWait);
       s_next_frame_time += timeToWait;
       // this can shut us down
-      Host::PumpMessagesOnCPUThread();
       if (!IsValid() || !Netplay::Session::IsActive())
-        return;
+        break;
 
       const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
       Host::RenderDisplay(skip_present);
@@ -1597,6 +1594,7 @@ void System::ExecuteNetplay()
         s_accumulated_gpu_time += g_host_display->GetAndResetAccumulatedGPUTime();
         s_presents_since_last_update++;
       }
+
       System::UpdatePerformanceCounters();
     }
   }
@@ -4512,7 +4510,17 @@ bool NpBeginGameCb(void* ctx, const char* game_name)
   // fast boot the selected game and wait for the other player
   auto param = SystemBootParameters(Netplay::Session::GetGamePath());
   param.override_fast_boot = true;
-  return System::BootSystem(param);
+  if (!System::BootSystem(param))
+  {
+    System::StopNetplaySession();
+    return false;
+  }
+  // Fast Forward to Game Start
+  SPU::SetAudioOutputMuted(true);
+  while (s_internal_frame_number < 2)
+    System::DoRunFrame();
+  SPU::SetAudioOutputMuted(false);
+  return true;
 }
 
 bool NpAdvFrameCb(void* ctx, int flags)
@@ -4597,6 +4605,11 @@ bool NpOnEventCb(void* ctx, GGPOEvent* ev)
       break;
     case GGPOEventCode::GGPO_EVENTCODE_TIMESYNC:
       Netplay::Session::GetTimer()->OnGGPOTimeSyncEvent(ev->u.timesync.frames_ahead);
+      break;
+    case GGPOEventCode::GGPO_EVENTCODE_DESYNC:
+      sprintf(buff, "Netplay Desync Detected!: Frame: %d, L:%u, R:%u", ev->u.desync.nFrameOfDesync,
+              ev->u.desync.ourCheckSum, ev->u.desync.remoteChecksum);
+      msg = buff;
       break;
     default:
       sprintf(buff, "Netplay Event Code: %d", ev->code);

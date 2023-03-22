@@ -27,7 +27,7 @@ private:
 
 private:
   Ui::NetplayWidget* m_ui;
-  std::vector<const GameList::Entry*> m_available_games;
+  std::vector<std::string> m_available_games;
 };
 
 #endif // NETPLAYWIDGET_H

@@ -59,8 +59,8 @@ public:
   static void Close();
   static bool IsActive();
   static void RunIdle();
-
-  static void AdvanceFrame();
+ 
+  static void AdvanceFrame(uint16_t checksum = 0);
   static void RunFrame(int32_t& waitTime);
   static int32_t CurrentFrame();
 
@@ -80,6 +80,7 @@ public:
   static void SetInputs(Netplay::Input inputs[2]);
 
   static Netplay::LoopTimer* GetTimer();
+  static uint16_t Fletcher16(uint8_t* data, int count);
 
 private:
   Netplay::LoopTimer m_timer;

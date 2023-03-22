@@ -86,9 +86,9 @@ void Netplay::Session::RunIdle()
   ggpo_idle(s_net_session.p_ggpo);
 }
 
-void Netplay::Session::AdvanceFrame()
+void Netplay::Session::AdvanceFrame(uint16_t checksum)
 {
-  ggpo_advance_frame(s_net_session.p_ggpo, 0);
+  ggpo_advance_frame(s_net_session.p_ggpo, checksum);
 }
 
 void Netplay::Session::RunFrame(int32_t& waitTime)
@@ -209,6 +209,21 @@ void Netplay::Session::SetInputs(Netplay::Input inputs[2])
 Netplay::LoopTimer* Netplay::Session::GetTimer()
 {
   return &s_net_session.m_timer;
+}
+
+uint16_t Netplay::Session::Fletcher16(uint8_t* data, int count)
+{
+  uint16_t sum1 = 0;
+  uint16_t sum2 = 0;
+  int index;
+
+  for (index = 0; index < count; ++index)
+  {
+    sum1 = (sum1 + data[index]) % 255;
+    sum2 = (sum2 + sum1) % 255;
+  }
+
+  return (sum2 << 8) | sum1;
 }
 
 void Netplay::LoopTimer::Init(uint32_t fps, uint32_t frames_to_spread_wait)

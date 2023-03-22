@@ -32,15 +32,17 @@ void NetplayWidget::FillGameList()
     std::string baseFilename = entry->path.substr(entry->path.find_last_of("/\\") + 1);
     m_ui->cbSelectedGame->addItem(
       QString::fromStdString("[" + entry->serial + "] " + entry->title + " | " + baseFilename));
-    m_available_games.push_back(entry);
+    m_available_games.push_back(entry->path);
   }
 }
 
 void NetplayWidget::SetupConnections()
 {
   // connect netplay window messages
-  connect(g_emu_thread, &EmuThread::onNetplayMessage,
-          [this](const QString& message) { m_ui->lwChatWindow->addItem(message.trimmed()); });
+  connect(g_emu_thread, &EmuThread::onNetplayMessage, [this](const QString& message) {
+    auto& msg = message;
+    m_ui->lwChatWindow->addItem(msg.trimmed());
+  });
 
   // connect sending messages when the chat button has been pressed
   connect(m_ui->btnSendMsg, &QPushButton::pressed, [this]() {
@@ -188,7 +190,7 @@ bool NetplayWidget::StartSession(bool direct_ip)
   quint16 localPort = m_ui->sbLocalPort->value();
   const QString& remoteAddr = m_ui->leRemoteAddr->text();
   quint16 remotePort = m_ui->sbRemotePort->value();
-  const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]->path);
+  const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]);
 
   if (!direct_ip)
     return false; // TODO: Handle Nat Traversal and use that information by overriding the information above.
