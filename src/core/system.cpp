@@ -1579,11 +1579,11 @@ void System::ExecuteNetplay()
     if (now >= next)
     {
       s32 timeToWait;
-      Host::PumpMessagesOnCPUThread();
       Netplay::Session::RunFrame(timeToWait);
       next = now + std::chrono::microseconds(timeToWait);
       s_next_frame_time += timeToWait;
       // this can shut us down
+      Host::PumpMessagesOnCPUThread();
       if (!IsValid() || !Netplay::Session::IsActive())
         break;
 
