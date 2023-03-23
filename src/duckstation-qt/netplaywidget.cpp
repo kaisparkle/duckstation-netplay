@@ -20,7 +20,6 @@ NetplayWidget::~NetplayWidget()
 {
   StopSession();
   delete m_ui;
-
 }
 
 void NetplayWidget::FillGameList()

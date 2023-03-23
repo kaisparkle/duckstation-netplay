@@ -93,7 +93,6 @@ void Netplay::Session::AdvanceFrame(uint16_t checksum)
 
 void Netplay::Session::RunFrame(int32_t& waitTime)
 {
-  bool needIdle = true;
   // run game
   auto result = GGPO_OK;
   int disconnectFlags = 0;
@@ -113,14 +112,14 @@ void Netplay::Session::RunFrame(int32_t& waitTime)
       // enable again when rolling back done
       SPU::SetAudioOutputMuted(false);
       System::NetplayAdvanceFrame (inputs, disconnectFlags);
-      needIdle = false;
     }
+    else
+      RunIdle();
   }
-
-  if (needIdle)
+  else
     RunIdle();
 
-  waitTime = Netplay::Session::GetTimer()->UsToWaitThisLoop();
+  waitTime = GetTimer()->UsToWaitThisLoop();
 }
 
 int32_t Netplay::Session::CurrentFrame()
