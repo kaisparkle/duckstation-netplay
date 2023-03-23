@@ -674,16 +674,13 @@ void Settings::FixIncompatibleSettings(bool display_osd_messages)
     g_settings.rewind_enable = false;
   }
 
-  if (g_settings.IsRunaheadEnabled() || Netplay::Session::IsActive())
+  if (g_settings.IsRunaheadEnabled())
   {
-    // currently we dont want to use runahead in combination with the rollback functionality during netplay
-    if (Netplay::Session::IsActive())
-      g_settings.runahead_frames = 0;
     // Block linking is good for performance, but hurts when regularly loading (i.e. runahead), since everything has to
     // be unlinked. Which would be thousands of blocks.
     if (g_settings.cpu_recompiler_block_linking)
     {
-      Log_WarningPrintf("Disabling block linking due to rollback/runahead.");
+      Log_WarningPrintf("Disabling block linking due to runahead.");
       g_settings.cpu_recompiler_block_linking = false;
     }
   }

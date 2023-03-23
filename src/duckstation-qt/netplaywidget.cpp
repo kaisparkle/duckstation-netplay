@@ -20,6 +20,7 @@ NetplayWidget::~NetplayWidget()
 {
   StopSession();
   delete m_ui;
+
 }
 
 void NetplayWidget::FillGameList()
@@ -39,11 +40,7 @@ void NetplayWidget::FillGameList()
 void NetplayWidget::SetupConnections()
 {
   // connect netplay window messages
-  connect(g_emu_thread, &EmuThread::onNetplayMessage, [this](const QString& message) {
-    auto& msg = message;
-    m_ui->lwChatWindow->addItem(msg.trimmed());
-  });
-
+  connect(g_emu_thread, &EmuThread::onNetplayMessage, this, &NetplayWidget::OnMsgReceived);
   // connect sending messages when the chat button has been pressed
   connect(m_ui->btnSendMsg, &QPushButton::pressed, [this]() {
     // check if message aint empty and the complete message ( message + name + ":" + space) is below 120 characters
@@ -53,6 +50,8 @@ void NetplayWidget::SetupConnections()
       return;
     m_ui->lwChatWindow->addItem(completeMsg);
     m_ui->tbNetplayChat->clear();
+    if (!g_emu_thread)
+      return;
     g_emu_thread->sendNetplayMessage(completeMsg);
   });
 
@@ -204,4 +203,9 @@ void NetplayWidget::StopSession()
   if (!g_emu_thread)
     return;
   g_emu_thread->stopNetplaySession();
+}
+
+void NetplayWidget::OnMsgReceived(const QString& msg) 
+{
+  m_ui->lwChatWindow->addItem(msg);
 }
