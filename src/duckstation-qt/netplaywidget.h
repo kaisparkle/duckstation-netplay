@@ -24,6 +24,7 @@ private:
   bool CheckControllersSet();
   bool StartSession(bool direct_ip);
   void StopSession();
+  void OnMsgReceived(const QString& msg);
 
 private:
   Ui::NetplayWidget* m_ui;
