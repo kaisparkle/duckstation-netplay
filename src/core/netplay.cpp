@@ -28,11 +28,16 @@ int32_t Netplay::Session::Start(int32_t lhandle, uint16_t lport, std::string& ra
   cb.begin_game = NpBeginGameCb;
   cb.free_buffer = NpFreeBuffCb;
   cb.on_event = NpOnEventCb;
+  cb.log_game_state = NpLogNetplayCb;
 
   GGPOErrorCode result;
-
+#ifdef SYNCTEST
+  char n[10] = "synctest";
+  result = ggpo_start_synctest(&s_net_session.p_ggpo, &cb, n, 2, sizeof(Netplay::Input), pred);
+#else
   result = ggpo_start_session(&s_net_session.p_ggpo, &cb, "Duckstation-Netplay", 2, sizeof(Netplay::Input), lport,
                               s_net_session.m_max_pred);
+#endif // SYNCTEST
 
   ggpo_set_disconnect_timeout(s_net_session.p_ggpo, 3000);
   ggpo_set_disconnect_notify_start(s_net_session.p_ggpo, 1000);
@@ -111,7 +116,7 @@ void Netplay::Session::RunFrame(int32_t& waitTime)
     {
       // enable again when rolling back done
       SPU::SetAudioOutputMuted(false);
-      System::NetplayAdvanceFrame (inputs, disconnectFlags);
+      System::NetplayAdvanceFrame(inputs, disconnectFlags);
     }
     else
       RunIdle();
@@ -208,21 +213,6 @@ void Netplay::Session::SetInputs(Netplay::Input inputs[2])
 Netplay::LoopTimer* Netplay::Session::GetTimer()
 {
   return &s_net_session.m_timer;
-}
-
-uint16_t Netplay::Session::Fletcher16(uint8_t* data, int count)
-{
-  uint16_t sum1 = 0;
-  uint16_t sum2 = 0;
-  int index;
-
-  for (index = 0; index < count; ++index)
-  {
-    sum1 = (sum1 + data[index]) % 255;
-    sum2 = (sum2 + sum1) % 255;
-  }
-
-  return (sum2 << 8) | sum1;
 }
 
 void Netplay::LoopTimer::Init(uint32_t fps, uint32_t frames_to_spread_wait)

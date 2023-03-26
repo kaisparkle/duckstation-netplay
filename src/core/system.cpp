@@ -4479,11 +4479,29 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
   Netplay::Session::GetTimer()->Init(fps, 180);
   // create session
-  int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, 8);
+  int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, 12);
+  // close system if its already running
+  if (System::IsValid())
+    System::ShutdownSystem(false);
+  // 
   if (result != GGPO_OK)
   {
     Log_ErrorPrintf("Failed to Create Netplay Session! Error: %d", result);
+    return;
   }
+  // fast boot the selected game and wait for the other player
+  auto param = SystemBootParameters(Netplay::Session::GetGamePath());
+  param.override_fast_boot = true;
+  if (!System::BootSystem(param))
+    System::StopNetplaySession();
+  // Fast Forward to Game Start // Skip this when using savestates
+  SPU::SetAudioOutputMuted(true);
+  while (s_internal_frame_number < 2)
+    System::DoRunFrame();
+  SPU::SetAudioOutputMuted(false);
+  // Eject memory cards if available
+  for (int i = 0; i < NUM_CONTROLLER_AND_CARD_PORTS; i++)
+    Pad::RemoveMemoryCard(i);
 }
 
 void System::StopNetplaySession()
@@ -4503,22 +4521,6 @@ void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
 
 bool NpBeginGameCb(void* ctx, const char* game_name)
 {
-  // close system if its already running
-  if (System::IsValid())
-    System::ShutdownSystem(false);
-  // fast boot the selected game and wait for the other player
-  auto param = SystemBootParameters(Netplay::Session::GetGamePath());
-  param.override_fast_boot = true;
-  if (!System::BootSystem(param))
-  {
-    System::StopNetplaySession();
-    return false;
-  }
-  // Fast Forward to Game Start
-  SPU::SetAudioOutputMuted(true);
-  while (s_internal_frame_number < 2)
-    System::DoRunFrame();
-  SPU::SetAudioOutputMuted(false);
   return true;
 }
 
@@ -4542,8 +4544,8 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
     return false;
   memcpy(*buffer, &dummyData, *len);
   // store state for later.
-  int pred = Netplay::Session::GetMaxPrediction();
-  if (frame < pred && s_netplay_states.size() < pred)
+  int pred = Netplay::Session::GetMaxPrediction() + 2;
+  if (frame < pred)
   {
     MemorySaveState save;
     result = System::SaveMemoryState(&save);
@@ -4554,6 +4556,10 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
     // reuse streams
     result = System::SaveMemoryState(&s_netplay_states[frame % pred]);
   }
+#ifdef SYNCTEST
+  *checksum = XXH3_64bits_withSeed(s_netplay_states[frame % pred].state_stream->GetMemoryPointer(),
+                    s_netplay_states[frame % pred].state_stream->GetMemorySize() / 16, 25042001);
+#endif // SYNCTEST 
   return result;
 }
 
@@ -4561,7 +4567,7 @@ bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame
 {
   // Disable Audio For upcoming rollback
   SPU::SetAudioOutputMuted(true);
-  return System::LoadMemoryState(s_netplay_states[frame_to_load % Netplay::Session::GetMaxPrediction()]);
+  return System::LoadMemoryState(s_netplay_states[frame_to_load % (Netplay::Session::GetMaxPrediction() + 2)]);
 }
 
 bool NpOnEventCb(void* ctx, GGPOEvent* ev)
@@ -4605,11 +4611,6 @@ bool NpOnEventCb(void* ctx, GGPOEvent* ev)
     case GGPOEventCode::GGPO_EVENTCODE_TIMESYNC:
       Netplay::Session::GetTimer()->OnGGPOTimeSyncEvent(ev->u.timesync.frames_ahead);
       break;
-    case GGPOEventCode::GGPO_EVENTCODE_DESYNC:
-      sprintf(buff, "Netplay Desync Detected!: Frame: %d, L:%u, R:%u", ev->u.desync.nFrameOfDesync,
-              ev->u.desync.ourCheckSum, ev->u.desync.remoteChecksum);
-      msg = buff;
-      break;
     default:
       sprintf(buff, "Netplay Event Code: %d", ev->code);
       msg = buff;
@@ -4619,6 +4620,12 @@ bool NpOnEventCb(void* ctx, GGPOEvent* ev)
     Host::OnNetplayMessage(msg);
     Log_InfoPrintf("%s", msg.c_str());
   }
+  return true;
+}
+
+bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int len)
+{
+  Log_InfoPrintf("Log: %s", buffer);
   return true;
 }
 

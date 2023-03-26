@@ -13,6 +13,8 @@
 #include "digital_controller.h"
 #include "types.h"
 
+// #define SYNCTEST // uncomment when you want to enter synctest mode.
+
 // C GGPO Event Callbacks. Should be defined in system.cpp
 extern "C" {
 bool NpAdvFrameCb(void* ctx, int flags);
@@ -21,6 +23,7 @@ bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame
 bool NpBeginGameCb(void* ctx, const char* game_name);
 void NpFreeBuffCb(void* ctx, void* buffer);
 bool NpOnEventCb(void* ctx, GGPOEvent* ev);
+bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int len);
 }
 
 namespace Netplay {
@@ -80,7 +83,6 @@ public:
   static void SetInputs(Netplay::Input inputs[2]);
 
   static Netplay::LoopTimer* GetTimer();
-  static uint16_t Fletcher16(uint8_t* data, int count);
 
 private:
   Netplay::LoopTimer m_timer;
