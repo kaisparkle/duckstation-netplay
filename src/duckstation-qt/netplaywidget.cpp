@@ -1,5 +1,7 @@
 #include "netplaywidget.h"
 #include "ui_netplaywidget.h"
+#include <QtConcurrent/qtconcurrentrun.h>
+#include <QtNetwork/QNetworkDatagram>
 #include <QtWidgets/qmessagebox.h>
 #include <common/log.h>
 #include <core/controller.h>
@@ -116,14 +118,14 @@ void NetplayWidget::SetupConstraints()
 
 bool NetplayWidget::CheckInfoValid(bool direct_ip)
 {
-  if (!direct_ip)
-  {
-    QMessageBox errBox;
-    errBox.setFixedSize(500, 200);
-    errBox.information(this, "Netplay Session", "Traversal Mode is not supported yet!");
-    errBox.show();
-    return false;
-  }
+  // if (!direct_ip)
+  //{
+  //   QMessageBox errBox;
+  //   errBox.setFixedSize(500, 200);
+  //   errBox.information(this, "Netplay Session", "Traversal Mode is not supported yet!");
+  //   errBox.show();
+  //   return false;
+  // }
 
   bool err = false;
   // check nickname, game selected and player selected.
@@ -133,6 +135,10 @@ bool NetplayWidget::CheckInfoValid(bool direct_ip)
   // check if direct ip details have been filled in
   if (direct_ip && (m_ui->leRemoteAddr->text().trimmed().isEmpty() || m_ui->sbRemotePort->value() == 0 ||
                     m_ui->sbLocalPort->value() == 0))
+    err = true;
+  // check if host code has been filled in
+  if (!direct_ip && m_ui->leHostCode->text().trimmed().isEmpty() &&
+      m_ui->tabTraversal->currentWidget() == m_ui->tabJoin)
     err = true;
   // check if host code has been filled in
   if (!direct_ip && m_ui->leHostCode->text().trimmed().isEmpty() &&
@@ -161,9 +167,7 @@ bool NetplayWidget::CheckControllersSet()
   {
     const Controller::ControllerInfo* cinfo = Controller::GetControllerInfo(g_settings.controller_types[i]);
     if (!cinfo || cinfo->type != ControllerType::DigitalController)
-    {
       err = true;
-    }
   }
   // if an err has been found throw popup
   if (err)
@@ -191,7 +195,10 @@ bool NetplayWidget::StartSession(bool direct_ip)
   const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]);
 
   if (!direct_ip)
-    return false; // TODO: Handle Nat Traversal and use that information by overriding the information above.
+  {
+    OpenTraversalSocket();
+    return true;
+  }
 
   g_emu_thread->startNetplaySession(localHandle, localPort, remoteAddr, remotePort, inputDelay, gamePath);
   return true;
@@ -201,10 +208,100 @@ void NetplayWidget::StopSession()
 {
   if (!g_emu_thread)
     return;
+
+  m_socket_loop_close = true;
   g_emu_thread->stopNetplaySession();
 }
 
-void NetplayWidget::OnMsgReceived(const QString& msg) 
+void NetplayWidget::OnMsgReceived(const QString& msg)
 {
   m_ui->lwChatWindow->addItem(msg);
+}
+
+void NetplayWidget::OpenTraversalSocket()
+{
+  m_socket_loop_close = false;
+  m_socket = new QUdpSocket(this);
+  m_socket->bind(QHostAddress::AnyIPv4, 0);
+
+  auto localPlayer = QString::number(m_ui->cbLocalPlayer->currentIndex());
+  auto localName = m_ui->lePlayerName->text().trimmed();
+
+  QString info = "";
+  if (m_ui->tabTraversal->currentWidget() == m_ui->tabHost)
+  {
+    int total = m_ui->cbSpectatorCount->currentIndex() + 2;
+    auto numPlayers = QString::number(total);
+    info = "&!CR&#" + numPlayers + "&#" + localName + "~$" + localPlayer;
+  }
+  else
+  {
+    auto code = m_ui->leHostCode->text().trimmed();
+    OnMsgReceived("Joining room: " + code);
+    info = "&!JR&#" + code + "&#" + localName + "~$" + localPlayer;
+  }
+
+  m_traversal_conf.local_port = m_socket->localPort();
+  m_socket->writeDatagram(info.toUtf8(), QHostAddress::LocalHost, 4420);
+  HandleTraversalExchange();
+}
+
+void NetplayWidget::HandleTraversalExchange()
+{
+  Log_InfoPrint("Handle Exchanges!");
+  auto f = QtConcurrent::run([this] {
+    while (!m_socket_loop_close)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+      if (m_socket->hasPendingDatagrams())
+      {
+        auto info = m_socket->receiveDatagram();
+        auto data = info.data().toStdString();
+        Log_InfoPrintf("%s", data.c_str());
+        if (data.compare("&!RC") == 0)
+        {
+          m_socket_loop_close = true;
+          Host::RunOnCPUThread([this] {
+            OnMsgReceived("Room has been closed!");
+            m_socket->abort();
+            m_socket->deleteLater();
+          });
+        }
+        else if (data.substr(0, 4).compare("&!RJ") == 0)
+        {
+          std::string num = data.substr(6, data.length() - 5);
+          m_traversal_conf.room_size = std::stoi(num);
+          Host::RunOnCPUThread([this, num] { OnMsgReceived("Room joined! size: " + QString::fromStdString(num)); });
+        }
+        else if (data.compare("&!NRF") == 0)
+        {
+          Host::RunOnCPUThread([this] { OnMsgReceived("No room found!"); });
+          m_socket_loop_close = true;
+        }
+        else if (data.compare("&!RF") == 0)
+        {
+          Host::RunOnCPUThread([this] { OnMsgReceived("Room full!, couldn't join."); });
+          m_socket_loop_close = true;
+        }
+        else if (data.substr(0, 5).compare("&!RCR") == 0)
+        {
+          Host::RunOnCPUThread([this, data] {
+            m_ui->lblHostCodeResult->setText(QString::fromUtf8(data.substr(7, data.length() - 6)));
+            OnMsgReceived("Room code generated!");
+          });
+        }
+        else if (data.substr(0, 5).compare("&!RIE") == 0)
+        {
+          m_traversal_conf.user_info.push_back(data);
+          Host::RunOnCPUThread([this] { OnMsgReceived("Exchanging information!"); });
+          // add one cuz you gotta include yourself.
+          if (m_traversal_conf.room_size == m_traversal_conf.user_info.size() + 1)
+            Host::RunOnCPUThread([this] { OnMsgReceived("Info exchange complete!"); });
+
+          for (int i = 0; i < m_traversal_conf.user_info.size(); i++)
+            Log_InfoPrint(m_traversal_conf.user_info[i].c_str());
+        }
+      }
+    }
+  });
 }

@@ -1081,12 +1081,6 @@ void EmuThread::startNetplaySession(int local_handle, quint16 local_port, const 
                               Q_ARG(quint16, remote_port), Q_ARG(int, input_delay), Q_ARG(const QString&, game_path));
     return;
   }
-  // disable block linking and disable rewind and runahead during a netplay session
-  g_settings.cpu_recompiler_block_linking = false;
-  g_settings.rewind_enable = false;
-  g_settings.runahead_frames = 0;
-
-  Log_WarningPrintf("Disabling block linking, runahead and rewind due to rollback.");
 
   auto remAddr = remote_addr.trimmed().toStdString();
   auto gamePath = game_path.trimmed().toStdString();
@@ -1765,9 +1759,9 @@ void Host::SetMouseMode(bool relative, bool hide_cursor)
   emit g_emu_thread->mouseModeRequested(relative, hide_cursor);
 }
 
-void Host::PumpMessagesOnCPUThread()
+void Host::PumpMessagesOnCPUThread(bool exclude_user_input)
 {
-  g_emu_thread->getEventLoop()->processEvents(QEventLoop::AllEvents);
+  g_emu_thread->getEventLoop()->processEvents(exclude_user_input ? QEventLoop::ExcludeUserInputEvents : QEventLoop::AllEvents);
   CommonHost::PumpMessagesOnCPUThread(); // calls InputManager::PollSources()
 }
 

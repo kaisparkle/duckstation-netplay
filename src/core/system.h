@@ -491,7 +491,7 @@ void OnPerformanceCountersUpdated();
 void OnGameChanged(const std::string& disc_path, const std::string& game_serial, const std::string& game_name);
 
 /// Provided by the host; called once per frame at guest vsync.
-void PumpMessagesOnCPUThread();
+void PumpMessagesOnCPUThread(bool exclude_user_input = false);
 
 /// Requests a specific display window size.
 void RequestResizeHostDisplay(s32 width, s32 height);

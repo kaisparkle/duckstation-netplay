@@ -856,7 +856,7 @@ void Host::SetMouseMode(bool relative, bool hide_cursor)
   // emit g_emu_thread->mouseModeRequested(relative, hide_cursor);
 }
 
-void Host::PumpMessagesOnCPUThread()
+void Host::PumpMessagesOnCPUThread(bool exclude_user_input)
 {
   NoGUIHost::ProcessCPUThreadPlatformMessages();
   NoGUIHost::ProcessCPUThreadEvents(false);

@@ -3,6 +3,7 @@
 #include "spu.h"
 #include "system.h"
 #include <bitset>
+#include <frontend-common/input_manager.h>
 
 // Netplay Impl
 Netplay::Session::Session() = default;
@@ -16,10 +17,7 @@ int32_t Netplay::Session::Start(int32_t lhandle, uint16_t lport, std::string& ra
                                 uint32_t pred)
 {
   s_net_session.m_max_pred = pred;
-  /*
-  TODO: since saving every frame during rollback loses us time to do actual gamestate iterations it might be better to
-  hijack the update / save / load cycle to only save every confirmed frame only saving when actually needed.
-  */
+
   GGPOSessionCallbacks cb{};
 
   cb.advance_frame = NpAdvFrameCb;
@@ -105,6 +103,7 @@ void Netplay::Session::RunFrame(int32_t& waitTime)
   // add local input
   if (GetLocalHandle() != GGPO_INVALID_HANDLE)
   {
+    InputManager::PollSources();
     auto inp = ReadLocalInput();
     result = AddLocalInput(inp);
   }

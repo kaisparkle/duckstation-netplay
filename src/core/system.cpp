@@ -1583,7 +1583,7 @@ void System::ExecuteNetplay()
       next = now + std::chrono::microseconds(timeToWait);
       s_next_frame_time += timeToWait;
       // this can shut us down
-      Host::PumpMessagesOnCPUThread();
+      Host::PumpMessagesOnCPUThread(true);
       if (!IsValid() || !Netplay::Session::IsActive())
         break;
 
@@ -4483,7 +4483,7 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   // close system if its already running
   if (System::IsValid())
     System::ShutdownSystem(false);
-  // 
+  //
   if (result != GGPO_OK)
   {
     Log_ErrorPrintf("Failed to Create Netplay Session! Error: %d", result);
@@ -4493,15 +4493,21 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   auto param = SystemBootParameters(Netplay::Session::GetGamePath());
   param.override_fast_boot = true;
   if (!System::BootSystem(param))
+  {
     System::StopNetplaySession();
-  // Fast Forward to Game Start // Skip this when using savestates
+    return;
+  }
+  // apply emulator settings
+  // disable block linking and disable rewind and runahead during a netplay session
+  g_settings.cpu_recompiler_block_linking = false;
+  g_settings.rewind_enable = false;
+  g_settings.runahead_frames = 0;
+  Log_WarningPrintf("Disabling block linking, runahead and rewind due to rollback.");
+  // Fast Forward to Game Start. Skip this when using savestates
   SPU::SetAudioOutputMuted(true);
   while (s_internal_frame_number < 2)
     System::DoRunFrame();
   SPU::SetAudioOutputMuted(false);
-  // Eject memory cards if available
-  for (int i = 0; i < NUM_CONTROLLER_AND_CARD_PORTS; i++)
-    Pad::RemoveMemoryCard(i);
 }
 
 void System::StopNetplaySession()
@@ -4558,8 +4564,8 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
   }
 #ifdef SYNCTEST
   *checksum = XXH3_64bits_withSeed(s_netplay_states[frame % pred].state_stream->GetMemoryPointer(),
-                    s_netplay_states[frame % pred].state_stream->GetMemorySize() / 16, 25042001);
-#endif // SYNCTEST 
+                                   s_netplay_states[frame % pred].state_stream->GetMemorySize() / 16, 25042001);
+#endif // SYNCTEST
   return result;
 }
 
@@ -4618,14 +4624,18 @@ bool NpOnEventCb(void* ctx, GGPOEvent* ev)
   if (!msg.empty())
   {
     Host::OnNetplayMessage(msg);
+#ifdef SYNCTEST
     Log_InfoPrintf("%s", msg.c_str());
+#endif
   }
   return true;
 }
 
 bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int len)
 {
+#ifdef SYNCTEST
   Log_InfoPrintf("Log: %s", buffer);
+#endif // SYNCTEST
   return true;
 }
 
