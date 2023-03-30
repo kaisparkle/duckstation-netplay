@@ -458,6 +458,8 @@ void SetRunaheadReplayFlag();
 /// Netplay
 void StartNetplaySession(s32 local_handle, u16 local_port, std::string& remote_addr, u16 remote_port, s32 input_delay,
                          std::string& game_path);
+void StartNetplaySessionTraversal(std::vector<u16> handles, std::vector<std::string> addresses, std::vector<u16> ports,
+                                  std::vector<std::string> nicknames, int input_delay, std::string& game_path);
 void StopNetplaySession();
 void NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags);
 } // namespace System

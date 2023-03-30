@@ -118,14 +118,14 @@ void NetplayWidget::SetupConstraints()
 
 bool NetplayWidget::CheckInfoValid(bool direct_ip)
 {
-  // if (!direct_ip)
-  //{
-  //   QMessageBox errBox;
-  //   errBox.setFixedSize(500, 200);
-  //   errBox.information(this, "Netplay Session", "Traversal Mode is not supported yet!");
-  //   errBox.show();
-  //   return false;
-  // }
+   if (direct_ip && m_ui->cbLocalPlayer->currentIndex() == 3)
+  {
+     QMessageBox errBox;
+     errBox.setFixedSize(500, 200);
+     errBox.information(this, "Netplay Session", "Spectators are currently only supported in Traversal mode!");
+     errBox.show();
+     return false;
+   }
 
   bool err = false;
   // check nickname, game selected and player selected.
@@ -187,6 +187,12 @@ bool NetplayWidget::StartSession(bool direct_ip)
   if (!g_emu_thread)
     return false;
 
+  if (!direct_ip)
+  {
+    OpenTraversalSocket();
+    return true;
+  }
+
   int localHandle = m_ui->cbLocalPlayer->currentIndex();
   int inputDelay = m_ui->sbInputDelay->value();
   quint16 localPort = m_ui->sbLocalPort->value();
@@ -194,14 +200,38 @@ bool NetplayWidget::StartSession(bool direct_ip)
   quint16 remotePort = m_ui->sbRemotePort->value();
   const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]);
 
-  if (!direct_ip)
-  {
-    OpenTraversalSocket();
-    return true;
-  }
-
   g_emu_thread->startNetplaySession(localHandle, localPort, remoteAddr, remotePort, inputDelay, gamePath);
   return true;
+}
+
+void NetplayWidget::StartSessionTraversal()
+{
+  Log_InfoPrint("Setup Traversal Connections!");
+  std::vector<std::string> addresses, nicknames;
+  std::vector<quint16> ports, handles;
+  // add your local information
+  addresses.push_back("localhost");
+  nicknames.push_back(m_ui->lePlayerName->text().trimmed().toStdString());
+  ports.push_back(m_traversal_conf.local_port);
+  handles.push_back(m_traversal_conf.local_handle);
+  int inputDelay = m_ui->sbInputDelay->value();
+  const QString& gamePath = QString::fromStdString(m_available_games[m_ui->cbSelectedGame->currentIndex() - 1]);
+  // add remote information
+  for (auto const& remote : m_traversal_conf.remote_user_info)
+  {
+    auto res = remote.split("&#"); 
+    // addr[0] = ip, addr[1] = port
+    // usr[0] = nickname, usr[1] = remote handle
+    auto addr = res[0].split(":");
+    auto usr = res[1].split("~$");
+    //Log_InfoPrintf("%s : %s", addr[0].toStdString().c_str(), addr[1].toStdString().c_str());
+    //Log_InfoPrintf("%s : %s", usr[0].toStdString().c_str(), usr[1].toStdString().c_str());    
+    addresses.push_back(addr[0].toStdString());
+    nicknames.push_back(usr[0].toStdString());
+    ports.push_back(addr[1].toInt());
+    handles.push_back(usr[1].toInt());
+  }
+  g_emu_thread->startNetplaySessionTraversal(handles, addresses, ports, nicknames, inputDelay, gamePath);
 }
 
 void NetplayWidget::StopSession()
@@ -209,7 +239,14 @@ void NetplayWidget::StopSession()
   if (!g_emu_thread)
     return;
 
-  m_socket_loop_close = true;
+  if (m_socket->isOpen())
+  {
+    m_socket_loop_close = true;
+    OnMsgReceived("Room has been closed!");
+    m_socket->abort();
+    m_socket->deleteLater();
+  }
+
   g_emu_thread->stopNetplaySession();
 }
 
@@ -227,22 +264,27 @@ void NetplayWidget::OpenTraversalSocket()
   auto localPlayer = QString::number(m_ui->cbLocalPlayer->currentIndex());
   auto localName = m_ui->lePlayerName->text().trimmed();
 
-  QString info = "";
+  QString message = "";
+  QString playerInfo = localName + "~$" + localPlayer;
+
   if (m_ui->tabTraversal->currentWidget() == m_ui->tabHost)
   {
+    // there will always be atleast 2 players (for now) without counting spectators.
     int total = m_ui->cbSpectatorCount->currentIndex() + 2;
     auto numPlayers = QString::number(total);
-    info = "&!CR&#" + numPlayers + "&#" + localName + "~$" + localPlayer;
+    message = "&!CR&#" + numPlayers + "&#" + playerInfo;
   }
   else
   {
     auto code = m_ui->leHostCode->text().trimmed();
+    message = "&!JR&#" + code + "&#" + playerInfo;
     OnMsgReceived("Joining room: " + code);
-    info = "&!JR&#" + code + "&#" + localName + "~$" + localPlayer;
   }
 
   m_traversal_conf.local_port = m_socket->localPort();
-  m_socket->writeDatagram(info.toUtf8(), QHostAddress::LocalHost, 4420);
+  m_traversal_conf.local_handle = localPlayer.toInt();
+
+  m_socket->writeDatagram(message.toUtf8(), QHostAddress::LocalHost, 4420);
   HandleTraversalExchange();
 }
 
@@ -252,12 +294,10 @@ void NetplayWidget::HandleTraversalExchange()
   auto f = QtConcurrent::run([this] {
     while (!m_socket_loop_close)
     {
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
       if (m_socket->hasPendingDatagrams())
       {
         auto info = m_socket->receiveDatagram();
         auto data = info.data().toStdString();
-        Log_InfoPrintf("%s", data.c_str());
         if (data.compare("&!RC") == 0)
         {
           m_socket_loop_close = true;
@@ -292,16 +332,23 @@ void NetplayWidget::HandleTraversalExchange()
         }
         else if (data.substr(0, 5).compare("&!RIE") == 0)
         {
-          m_traversal_conf.user_info.push_back(data);
+          m_traversal_conf.remote_user_info.push_back(info.data().remove(0, 7));
           Host::RunOnCPUThread([this] { OnMsgReceived("Exchanging information!"); });
           // add one cuz you gotta include yourself.
-          if (m_traversal_conf.room_size == m_traversal_conf.user_info.size() + 1)
-            Host::RunOnCPUThread([this] { OnMsgReceived("Info exchange complete!"); });
-
-          for (int i = 0; i < m_traversal_conf.user_info.size(); i++)
-            Log_InfoPrint(m_traversal_conf.user_info[i].c_str());
+          if (m_traversal_conf.room_size == m_traversal_conf.remote_user_info.size() + 1)
+          {
+            m_socket_loop_close = true;
+            Host::RunOnCPUThread([this] {
+              OnMsgReceived("Info exchange complete!");
+              OnMsgReceived("Room has been closed!");
+              m_socket->abort();
+              m_socket->deleteLater();
+              StartSessionTraversal();
+            });
+          }
         }
       }
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
   });
 }

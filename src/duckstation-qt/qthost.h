@@ -190,6 +190,9 @@ public Q_SLOTS:
   void reloadPostProcessingShaders();
   void startNetplaySession(int local_handle, quint16 local_port, const QString& remote_addr, quint16 remote_port,
                            int input_delay, const QString& game_path);
+  void startNetplaySessionTraversal(std::vector<quint16> handles, std::vector<std::string> addresses,
+                                    std::vector<quint16> ports, std::vector<std::string> nicknames, int inputDelay,
+                                    const QString& game_path);
   void stopNetplaySession();
   void sendNetplayMessage(const QString& message);
 

@@ -4477,7 +4477,7 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   Netplay::Session::SetGamePath(game_path);
   // set netplay timer
   const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
-  Netplay::Session::GetTimer()->Init(fps, 180);
+  Netplay::Session::GetTimer()->Init(fps, 120);
   // create session
   int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, 12);
   // close system if its already running
@@ -4508,6 +4508,23 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   while (s_internal_frame_number < 2)
     System::DoRunFrame();
   SPU::SetAudioOutputMuted(false);
+}
+
+void System::StartNetplaySessionTraversal(std::vector<u16> handles, std::vector<std::string> addresses,
+                                          std::vector<u16> ports, std::vector<std::string> nicknames, int input_delay,
+                                          std::string& game_path)
+{
+  Log_InfoPrint("Start Session!");
+  // dont want to start a session when theres already one going on.
+  if (Netplay::Session::IsActive())
+    return;
+  // set game path for later loading during the begin game callback
+  Netplay::Session::SetGamePath(game_path);
+  // set netplay timer
+  const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
+  Netplay::Session::GetTimer()->Init(fps, 120);
+  // create session
+  // TODO Finish  session creation
 }
 
 void System::StopNetplaySession()

@@ -7,9 +7,10 @@
 
 struct TraversalConfig
 {
+  int local_handle;
   quint16 local_port;
   int room_size = 2; // by default there are always atleast 2 players.
-  std::vector<std::string> user_info;
+  std::vector<QString> remote_user_info;
 };
 
 namespace Ui {
@@ -31,6 +32,7 @@ private:
   bool CheckInfoValid(bool direct_ip);
   bool CheckControllersSet();
   bool StartSession(bool direct_ip);
+  void StartSessionTraversal();
   void StopSession();
   void OnMsgReceived(const QString& msg);
 

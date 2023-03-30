@@ -1087,6 +1087,23 @@ void EmuThread::startNetplaySession(int local_handle, quint16 local_port, const 
   System::StartNetplaySession(local_handle, local_port, remAddr, remote_port, input_delay, gamePath);
 }
 
+void EmuThread::startNetplaySessionTraversal(std::vector<quint16> handles, std::vector<std::string> addresses,
+                                             std::vector<quint16> ports, std::vector<std::string> nicknames,
+                                             int input_delay, const QString& game_path)
+{
+  if (!isOnThread())
+  {
+    QMetaObject::invokeMethod(this, "startNetplaySessionTraversal", Qt::QueuedConnection,
+                              Q_ARG(std::vector<uint16_t>, handles), Q_ARG(std::vector<std::string>, addresses),
+                              Q_ARG(std::vector<quint16>, ports), Q_ARG(std::vector<std::string>, nicknames),
+                              Q_ARG(int, input_delay), Q_ARG(const QString&, game_path));
+    return;
+  }
+  Log_InfoPrint("Net OK OK!");
+  auto gamePath = game_path.trimmed().toStdString();
+  System::StartNetplaySessionTraversal(handles, addresses, ports, nicknames, input_delay, gamePath);
+}
+
 void EmuThread::sendNetplayMessage(const QString& message)
 {
   if (!isOnThread())
@@ -1761,7 +1778,8 @@ void Host::SetMouseMode(bool relative, bool hide_cursor)
 
 void Host::PumpMessagesOnCPUThread(bool exclude_user_input)
 {
-  g_emu_thread->getEventLoop()->processEvents(exclude_user_input ? QEventLoop::ExcludeUserInputEvents : QEventLoop::AllEvents);
+  g_emu_thread->getEventLoop()->processEvents(exclude_user_input ? QEventLoop::ExcludeUserInputEvents :
+                                                                   QEventLoop::AllEvents);
   CommonHost::PumpMessagesOnCPUThread(); // calls InputManager::PollSources()
 }
 
