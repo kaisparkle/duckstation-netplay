@@ -72,6 +72,7 @@ public:
   static void AdvanceFrame(uint16_t checksum = 0);
   static void RunFrame(int64_t& waitTime);
   static int32_t CurrentFrame();
+  static int32_t ConfirmedFrame();
 
   static void CollectInput(uint32_t slot, uint32_t bind, float value);
   static Netplay::Input ReadLocalInput();

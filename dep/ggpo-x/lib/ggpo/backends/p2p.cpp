@@ -430,6 +430,11 @@ GGPOErrorCode Peer2PeerBackend::CurrentFrame(int& current)
   current = _sync.GetFrameCount();
   return GGPO_OK;
 }
+GGPOErrorCode Peer2PeerBackend::ConfirmedFrame(int& confirmed)
+{
+  confirmed = _sync.GetLastConfirmedFrame();
+  return GGPO_OK;
+}
 GGPOErrorCode Peer2PeerBackend::IncrementFrame(uint16_t checksum1)
 {
   auto currentFrame = _sync.GetFrameCount();

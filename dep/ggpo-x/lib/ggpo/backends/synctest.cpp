@@ -107,6 +107,13 @@ GGPOErrorCode SyncTestBackend::CurrentFrame(int& current)
   return GGPO_OK;
 }
 
+GGPOErrorCode SyncTestBackend::ConfirmedFrame(int& confirmed)
+{
+  confirmed = _sync.GetLastConfirmedFrame();
+  return GGPO_OK;
+}
+
+
 GGPOErrorCode SyncTestBackend::IncrementFrame(uint16_t cs)
 {
   cs;

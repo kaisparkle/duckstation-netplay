@@ -83,6 +83,12 @@ GGPOErrorCode SpectatorBackend::CurrentFrame(int& current)
   current = _next_input_to_send;
   return GGPO_OK;
 }
+
+GGPOErrorCode SpectatorBackend::ConfirmedFrame(int& confirmed)
+{
+  confirmed = _next_input_to_send;
+  return GGPO_OK;
+}
 GGPOErrorCode SpectatorBackend::IncrementFrame(uint16_t checksum)
 {
   checksum;

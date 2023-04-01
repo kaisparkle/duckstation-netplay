@@ -208,6 +208,13 @@ int32_t Netplay::Session::CurrentFrame()
   return frame;
 }
 
+int32_t Netplay::Session::ConfirmedFrame()
+{
+  int32_t frame;
+  ggpo_get_confirmed_frame(s_net_session.p_ggpo, frame);
+  return frame;
+}
+
 void Netplay::Session::CollectInput(uint32_t slot, uint32_t bind, float value)
 {
   s_net_session.m_net_input[slot][bind] = value;

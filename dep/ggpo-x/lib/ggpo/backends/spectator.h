@@ -40,6 +40,7 @@ public:
   virtual GGPOErrorCode SetDisconnectNotifyStart(int timeout) { return GGPO_ERRORCODE_UNSUPPORTED; }
   virtual GGPOErrorCode Chat(const char* text) override { return GGPO_ERRORCODE_UNSUPPORTED; }
   virtual GGPOErrorCode CurrentFrame(int& current) override;
+  virtual GGPOErrorCode ConfirmedFrame(int& confirmed) override;
 
 public:
   virtual void OnMsg(sockaddr_in& from, UdpMsg* msg, int len);

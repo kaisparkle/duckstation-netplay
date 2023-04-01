@@ -545,6 +545,8 @@ GGPO_API GGPOErrorCode __cdecl ggpo_advance_frame(GGPOSession*, uint16_t checksu
  *
  */
 GGPO_API GGPOErrorCode __cdecl ggpo_get_current_frame(GGPOSession* ggpo, int& nFrame);
+
+GGPO_API GGPOErrorCode __cdecl ggpo_get_confirmed_frame(GGPOSession* ggpo, int& nFrame);
 /*
  * ggpo_get_network_stats --
  *

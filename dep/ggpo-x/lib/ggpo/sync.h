@@ -51,6 +51,7 @@ public:
   void Init(Config& config);
 
   void SetLastConfirmedFrame(int frame);
+  int GetLastConfirmedFrame();
   void SetFrameDelay(int queue, int delay);
   bool AddLocalInput(int queue, GameInput& input);
   void AddRemoteInput(int queue, GameInput& input);

@@ -53,6 +53,11 @@ void Sync::SetLastConfirmedFrame(int frame)
   }
 }
 
+int Sync::GetLastConfirmedFrame()
+{
+  return _last_confirmed_frame;
+}
+
 bool Sync::AddLocalInput(int queue, GameInput& input)
 {
   int frames_behind = _framecount - _last_confirmed_frame;

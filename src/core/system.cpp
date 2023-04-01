@@ -63,7 +63,7 @@ Log_SetChannel(System);
 #include <mmsystem.h>
 #endif
 
-// #define PROFILE_MEMORY_SAVE_STATES 1
+#define PROFILE_MEMORY_SAVE_STATES 1
 
 SystemBootParameters::SystemBootParameters() = default;
 
@@ -4593,6 +4593,7 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
   memcpy(*buffer, &dummyData, *len);
   // store state for later.
   int pred = Netplay::Session::GetMaxPrediction() + 2;
+  Log_InfoPrintf("cf: %d", Netplay::Session::ConfirmedFrame());
   if (frame < pred)
   {
     MemorySaveState save;
