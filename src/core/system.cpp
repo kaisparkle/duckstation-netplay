@@ -1571,7 +1571,7 @@ void System::Execute()
 void System::ExecuteNetplay()
 {
   // frame timing
-  s32 timeToWait;
+  s64 timeToWait;
   std::chrono::steady_clock::time_point start, next, now;
   start = next = now = std::chrono::steady_clock::now();
   while (Netplay::Session::IsActive() && System::IsRunning())
@@ -1579,13 +1579,14 @@ void System::ExecuteNetplay()
     now = std::chrono::steady_clock::now();
     if (now >= next)
     {
+      // this can shut us down
+      Host::PumpMessagesOnCPUThread();
+      if (!IsValid() || !Netplay::Session::IsActive())
+        break;
+
       Netplay::Session::RunFrame(timeToWait);
       next = now + std::chrono::microseconds(timeToWait);
       s_next_frame_time += timeToWait;
-      // this can shut us down
-      Host::PumpMessagesOnCPUThread(true);
-      if (!IsValid() || !Netplay::Session::IsActive())
-        break;
 
       const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
       Host::RenderDisplay(skip_present);
@@ -4476,14 +4477,13 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   // set game path for later loading during the begin game callback
   Netplay::Session::SetGamePath(game_path);
   // set netplay timer
-  const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
-  Netplay::Session::GetTimer()->Init(fps, 120);
+  Netplay::Session::GetTimer()->Init(60, Netplay::FRAME_WAIT_SPREAD);
   // create session
-  int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, 12);
+  int result =
+    Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, Netplay::NUM_ROLLBACK_FRAMES);
   // close system if its already running
   if (System::IsValid())
     System::ShutdownSystem(false);
-  //
   if (result != GGPO_OK)
   {
     Log_ErrorPrintf("Failed to Create Netplay Session! Error: %d", result);
@@ -4497,34 +4497,56 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
     System::StopNetplaySession();
     return;
   }
-  // apply emulator settings
-  // disable block linking and disable rewind and runahead during a netplay session
-  g_settings.cpu_recompiler_block_linking = false;
-  g_settings.rewind_enable = false;
-  g_settings.runahead_frames = 0;
-  Log_WarningPrintf("Disabling block linking, runahead and rewind due to rollback.");
-  // Fast Forward to Game Start. Skip this when using savestates
-  SPU::SetAudioOutputMuted(true);
-  while (s_internal_frame_number < 2)
-    System::DoRunFrame();
-  SPU::SetAudioOutputMuted(false);
+  System::FastForwardAndSetNetplayOptions();
 }
 
 void System::StartNetplaySessionTraversal(std::vector<u16> handles, std::vector<std::string> addresses,
                                           std::vector<u16> ports, std::vector<std::string> nicknames, int input_delay,
                                           std::string& game_path)
 {
-  Log_InfoPrint("Start Session!");
+  // Log_InfoPrint("Start Session!");
   // dont want to start a session when theres already one going on.
   if (Netplay::Session::IsActive())
     return;
   // set game path for later loading during the begin game callback
   Netplay::Session::SetGamePath(game_path);
   // set netplay timer
-  const u32 fps = (s_region == ConsoleRegion::PAL ? 50 : 60);
-  Netplay::Session::GetTimer()->Init(fps, 120);
+  Netplay::Session::GetTimer()->Init(60, Netplay::FRAME_WAIT_SPREAD);
   // create session
-  // TODO Finish  session creation
+  int result = Netplay::Session::StartTraversal(handles, addresses, ports, input_delay, Netplay::NUM_ROLLBACK_FRAMES);
+  // close system if its already running
+  if (System::IsValid())
+    System::ShutdownSystem(false);
+  if (result != GGPO_OK)
+  {
+    Log_ErrorPrintf("Failed to Create Netplay Session! Error: %d", result);
+    return;
+  }
+  // fast boot the selected game and wait for the other player
+  auto param = SystemBootParameters(Netplay::Session::GetGamePath());
+  param.override_fast_boot = true;
+  if (!System::BootSystem(param))
+  {
+    System::StopNetplaySession();
+    return;
+  }
+  System::FastForwardAndSetNetplayOptions();
+}
+
+void System::FastForwardAndSetNetplayOptions() 
+{
+  // apply emulator settings
+  // disable block linking and disable rewind and runahead during a netplay session
+  g_settings.cpu_recompiler_block_linking = false;
+  g_settings.rewind_enable = false;
+  g_settings.runahead_frames = 0;
+  Log_WarningPrintf("Disabling block linking, runahead and rewind due to rollback.");
+  System::ApplySettings(true);
+  // Fast Forward to Game Start. Skip this when using savestates
+  SPU::SetAudioOutputMuted(true);
+  while (s_internal_frame_number < 2)
+    System::DoRunFrame();
+  SPU::SetAudioOutputMuted(false);
 }
 
 void System::StopNetplaySession()
@@ -4544,11 +4566,13 @@ void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
 
 bool NpBeginGameCb(void* ctx, const char* game_name)
 {
+  //Log_InfoPrint("Begin!");
   return true;
 }
 
 bool NpAdvFrameCb(void* ctx, int flags)
 {
+ // Log_InfoPrint("Advance!");
   Netplay::Input inputs[2] = {};
   int disconnectFlags;
   Netplay::Session::SyncInput(inputs, &disconnectFlags);
@@ -4558,6 +4582,7 @@ bool NpAdvFrameCb(void* ctx, int flags)
 
 bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int frame)
 {
+  // Log_InfoPrint("Save!");
   bool result = false;
   // give ggpo something so it doesnt complain.
   u8 dummyData = 43;
@@ -4588,6 +4613,7 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
 
 bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load)
 {
+  // Log_InfoPrint("Load!");
   // Disable Audio For upcoming rollback
   SPU::SetAudioOutputMuted(true);
   return System::LoadMemoryState(s_netplay_states[frame_to_load % (Netplay::Session::GetMaxPrediction() + 2)]);
@@ -4595,6 +4621,7 @@ bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame
 
 bool NpOnEventCb(void* ctx, GGPOEvent* ev)
 {
+  // Log_InfoPrint("Event!");
   char buff[128];
   std::string msg;
   switch (ev->code)

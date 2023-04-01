@@ -460,6 +460,7 @@ void StartNetplaySession(s32 local_handle, u16 local_port, std::string& remote_a
                          std::string& game_path);
 void StartNetplaySessionTraversal(std::vector<u16> handles, std::vector<std::string> addresses, std::vector<u16> ports,
                                   std::vector<std::string> nicknames, int input_delay, std::string& game_path);
+void FastForwardAndSetNetplayOptions();
 void StopNetplaySession();
 void NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags);
 } // namespace System
@@ -493,7 +494,7 @@ void OnPerformanceCountersUpdated();
 void OnGameChanged(const std::string& disc_path, const std::string& game_serial, const std::string& game_name);
 
 /// Provided by the host; called once per frame at guest vsync.
-void PumpMessagesOnCPUThread(bool exclude_user_input = false);
+void PumpMessagesOnCPUThread();
 
 /// Requests a specific display window size.
 void RequestResizeHostDisplay(s32 width, s32 height);

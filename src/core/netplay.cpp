@@ -71,6 +71,82 @@ int32_t Netplay::Session::Start(int32_t lhandle, uint16_t lport, std::string& ra
   return result;
 }
 
+int32_t Netplay::Session::StartTraversal(std::vector<uint16_t> handles, std::vector<std::string> addresses,
+                                         std::vector<uint16_t> ports, int input_delay, uint32_t pred)
+{
+  GGPOErrorCode result;
+  GGPOSessionCallbacks cb{};
+
+  cb.advance_frame = NpAdvFrameCb;
+  cb.save_game_state = NpSaveFrameCb;
+  cb.load_game_state = NpLoadFrameCb;
+  cb.begin_game = NpBeginGameCb;
+  cb.free_buffer = NpFreeBuffCb;
+  cb.on_event = NpOnEventCb;
+  cb.log_game_state = NpLogNetplayCb;
+
+  // if the first index its handle is 3 or higher. for now (31/03/2023) this means that the local client is a spectator.
+  if (handles[0] >= 3)
+  {
+    // find player 1 to host the spectators
+    int p1Idx = -1;
+    for (int i = 0; i < handles.size(); i++)
+      if (handles[i] == 1)
+        p1Idx = i;
+    // p1 not found = bad session.
+    if (p1Idx == -1)
+      return GGPO_ERRORCODE_INVALID_SESSION;
+    // setup session
+    char buff[20] = "Duckstation";
+    char* addr = addresses[p1Idx].data();
+    result =
+      ggpo_start_spectating(&s_net_session.p_ggpo, &cb, buff, 2, sizeof(Netplay::Input), ports[0], addr, ports[p1Idx]);
+    return result;
+  }
+  // otherwise setup a normal session and if your local is player 1 be sure to add spectators
+  s_net_session.m_max_pred = pred;
+
+  result = ggpo_start_session(&s_net_session.p_ggpo, &cb, "Duckstation-Netplay", 2, sizeof(Netplay::Input), ports[0],
+                              s_net_session.m_max_pred);
+
+  ggpo_set_disconnect_timeout(s_net_session.p_ggpo, 3000);
+  ggpo_set_disconnect_notify_start(s_net_session.p_ggpo, 1000);
+
+  for (int i = 0; i < handles.size(); i++)
+  {
+    GGPOPlayer player = {};
+    GGPOPlayerHandle handle = 0;
+    player.size = sizeof(GGPOPlayer);
+    player.player_num = handles[i];
+
+    if (i == 0)
+    {
+      // local
+      player.type = GGPOPlayerType::GGPO_PLAYERTYPE_LOCAL;
+      result = ggpo_add_player(s_net_session.p_ggpo, &player, &handle);
+      s_net_session.m_local_handle = handle;
+    }
+    else
+    {
+      // remotes and spectator
+      player.type = GGPOPlayerType::GGPO_PLAYERTYPE_SPECTATOR;
+      if (handles[i] < 3)
+        player.type = GGPOPlayerType::GGPO_PLAYERTYPE_REMOTE;
+      else if (handles[0] != 1) // if local is not player 1 then dont handle spectators
+        continue;
+#ifdef _WIN32
+      strcpy_s(player.u.remote.ip_address, addresses[i].c_str());
+#else
+      strcpy(player.u.remote.ip_address, addresses[i].c_str());
+#endif
+      player.u.remote.port = ports[i];
+      result = ggpo_add_player(s_net_session.p_ggpo, &player, &handle);
+    }
+  }
+  ggpo_set_frame_delay(s_net_session.p_ggpo, s_net_session.m_local_handle, input_delay);
+  return result;
+}
+
 void Netplay::Session::Close()
 {
   ggpo_close_session(s_net_session.p_ggpo);
@@ -94,7 +170,7 @@ void Netplay::Session::AdvanceFrame(uint16_t checksum)
   ggpo_advance_frame(s_net_session.p_ggpo, checksum);
 }
 
-void Netplay::Session::RunFrame(int32_t& waitTime)
+void Netplay::Session::RunFrame(int64_t& waitTime)
 {
   // run game
   auto result = GGPO_OK;
@@ -103,7 +179,6 @@ void Netplay::Session::RunFrame(int32_t& waitTime)
   // add local input
   if (GetLocalHandle() != GGPO_INVALID_HANDLE)
   {
-    InputManager::PollSources();
     auto inp = ReadLocalInput();
     result = AddLocalInput(inp);
   }

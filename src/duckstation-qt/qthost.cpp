@@ -113,6 +113,8 @@ void QtHost::RegisterTypes()
   qRegisterMetaType<const GameList::Entry*>();
   qRegisterMetaType<GPURenderer>("GPURenderer");
   qRegisterMetaType<InputBindingKey>("InputBindingKey");
+  qRegisterMetaType<std::vector<quint16>>("std::vector<quint16>");
+  qRegisterMetaType<std::vector<std::string>>("std::vector<std::string>");
 }
 
 bool QtHost::InBatchMode()
@@ -1094,12 +1096,12 @@ void EmuThread::startNetplaySessionTraversal(std::vector<quint16> handles, std::
   if (!isOnThread())
   {
     QMetaObject::invokeMethod(this, "startNetplaySessionTraversal", Qt::QueuedConnection,
-                              Q_ARG(std::vector<uint16_t>, handles), Q_ARG(std::vector<std::string>, addresses),
+                              Q_ARG(std::vector<quint16>, handles), Q_ARG(std::vector<std::string>, addresses),
                               Q_ARG(std::vector<quint16>, ports), Q_ARG(std::vector<std::string>, nicknames),
                               Q_ARG(int, input_delay), Q_ARG(const QString&, game_path));
     return;
   }
-  Log_InfoPrint("Net OK OK!");
+  // Log_InfoPrint("Net OK OK!");
   auto gamePath = game_path.trimmed().toStdString();
   System::StartNetplaySessionTraversal(handles, addresses, ports, nicknames, input_delay, gamePath);
 }
@@ -1722,7 +1724,7 @@ void EmuThread::updatePerformanceCounters()
     m_last_video_fps = vfps;
   }
 
-  const s32 ping = Netplay::Session::GetPing();
+  const u32 ping = Netplay::Session::GetPing();
   if (m_last_ping != ping)
   {
     QMetaObject::invokeMethod(g_main_window->getStatusPingWidget(), "setText", Qt::QueuedConnection,
@@ -1776,10 +1778,9 @@ void Host::SetMouseMode(bool relative, bool hide_cursor)
   emit g_emu_thread->mouseModeRequested(relative, hide_cursor);
 }
 
-void Host::PumpMessagesOnCPUThread(bool exclude_user_input)
+void Host::PumpMessagesOnCPUThread()
 {
-  g_emu_thread->getEventLoop()->processEvents(exclude_user_input ? QEventLoop::ExcludeUserInputEvents :
-                                                                   QEventLoop::AllEvents);
+  g_emu_thread->getEventLoop()->processEvents(QEventLoop::AllEvents);
   CommonHost::PumpMessagesOnCPUThread(); // calls InputManager::PollSources()
 }
 

@@ -28,6 +28,9 @@ bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int le
 
 namespace Netplay {
 
+static int FRAME_WAIT_SPREAD = 120;
+static int NUM_ROLLBACK_FRAMES = 5;
+
 struct Input
 {
   uint32_t button_data;
@@ -58,13 +61,16 @@ public:
   // l = local, r = remote
   static int32_t Start(int32_t lhandle, uint16_t lport, std::string& raddr, uint16_t rport, int32_t ldelay,
                        uint32_t pred);
+  static int32_t StartTraversal(std::vector<uint16_t> handles, std::vector<std::string> addresses,
+                                std::vector<uint16_t> ports, int input_delay,
+                                uint32_t pred);
 
   static void Close();
   static bool IsActive();
   static void RunIdle();
- 
+
   static void AdvanceFrame(uint16_t checksum = 0);
-  static void RunFrame(int32_t& waitTime);
+  static void RunFrame(int64_t& waitTime);
   static int32_t CurrentFrame();
 
   static void CollectInput(uint32_t slot, uint32_t bind, float value);
