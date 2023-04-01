@@ -29,7 +29,7 @@ bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int le
 namespace Netplay {
 
 static int FRAME_WAIT_SPREAD = 120;
-static int NUM_ROLLBACK_FRAMES = 5;
+static int NUM_ROLLBACK_FRAMES = 10;
 
 struct Input
 {

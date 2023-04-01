@@ -248,10 +248,7 @@ void NetplayWidget::StopSession()
     return;
 
   if (worker_thread.isRunning())
-  {
     worker_thread.quit();
-    worker_thread.wait();
-  }
 
   g_emu_thread->stopNetplaySession();
 }
@@ -304,7 +301,6 @@ void NetplayWidget::OpenTraversalSocket()
   connect(tThread, &TraversalThread::resultFailed, [this] {
     OnMsgReceived("Failed to Exchange information!\nPlease try again!");
     worker_thread.quit();
-    worker_thread.wait();
   });
 
   worker_thread.start();

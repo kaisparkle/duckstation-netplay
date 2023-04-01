@@ -1571,33 +1571,31 @@ void System::Execute()
 void System::ExecuteNetplay()
 {
   // frame timing
-  s64 timeToWait;
-  std::chrono::steady_clock::time_point start, next, now;
-  start = next = now = std::chrono::steady_clock::now();
+  s64 timeToWait = 1000000 / 60; // start off value here will change
+  s64 frameTime, accum = 0;
+  std::chrono::steady_clock::time_point newTime, currTime;
+  currTime = std::chrono::steady_clock::now();
   while (Netplay::Session::IsActive() && System::IsRunning())
   {
-    now = std::chrono::steady_clock::now();
-    if (now >= next)
+    if (!IsValid() || !Netplay::Session::IsActive())
+      break;
+
+    newTime = std::chrono::steady_clock::now();
+    frameTime = std::chrono::duration_cast<std::chrono::microseconds>(newTime - currTime).count();
+    currTime = newTime;
+    accum += frameTime;
+
+    while (accum >= timeToWait)
     {
       // this can shut us down
       Host::PumpMessagesOnCPUThread();
-      if (!IsValid() || !Netplay::Session::IsActive())
-        break;
-
       Netplay::Session::RunFrame(timeToWait);
-      next = now + std::chrono::microseconds(timeToWait);
+      accum -= timeToWait;
       s_next_frame_time += timeToWait;
-
-      const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
-      Host::RenderDisplay(skip_present);
-      if (!skip_present && g_host_display->IsGPUTimingEnabled())
-      {
-        s_accumulated_gpu_time += g_host_display->GetAndResetAccumulatedGPUTime();
-        s_presents_since_last_update++;
-      }
-
-      System::UpdatePerformanceCounters();
     }
+
+    Host::RenderDisplay(false);
+    System::UpdatePerformanceCounters();
   }
 }
 
@@ -4479,8 +4477,8 @@ void System::StartNetplaySession(s32 local_handle, u16 local_port, std::string& 
   // set netplay timer
   Netplay::Session::GetTimer()->Init(60, Netplay::FRAME_WAIT_SPREAD);
   // create session
-  int result =
-    Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay, Netplay::NUM_ROLLBACK_FRAMES);
+  int result = Netplay::Session::Start(local_handle, local_port, remote_addr, remote_port, input_delay,
+                                       Netplay::NUM_ROLLBACK_FRAMES);
   // close system if its already running
   if (System::IsValid())
     System::ShutdownSystem(false);
@@ -4533,7 +4531,7 @@ void System::StartNetplaySessionTraversal(std::vector<u16> handles, std::vector<
   System::FastForwardAndSetNetplayOptions();
 }
 
-void System::FastForwardAndSetNetplayOptions() 
+void System::FastForwardAndSetNetplayOptions()
 {
   // apply emulator settings
   // disable block linking and disable rewind and runahead during a netplay session
@@ -4541,7 +4539,6 @@ void System::FastForwardAndSetNetplayOptions()
   g_settings.rewind_enable = false;
   g_settings.runahead_frames = 0;
   Log_WarningPrintf("Disabling block linking, runahead and rewind due to rollback.");
-  System::ApplySettings(true);
   // Fast Forward to Game Start. Skip this when using savestates
   SPU::SetAudioOutputMuted(true);
   while (s_internal_frame_number < 2)
@@ -4566,13 +4563,13 @@ void System::NetplayAdvanceFrame(Netplay::Input inputs[], int disconnect_flags)
 
 bool NpBeginGameCb(void* ctx, const char* game_name)
 {
-  //Log_InfoPrint("Begin!");
+  // Log_InfoPrint("Begin!");
   return true;
 }
 
 bool NpAdvFrameCb(void* ctx, int flags)
 {
- // Log_InfoPrint("Advance!");
+  // Log_InfoPrint("Advance!");
   Netplay::Input inputs[2] = {};
   int disconnectFlags;
   Netplay::Session::SyncInput(inputs, &disconnectFlags);
