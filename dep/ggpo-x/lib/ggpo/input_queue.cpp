@@ -86,8 +86,7 @@ void InputQueue::DiscardConfirmedFrames(int frame)
 
 void InputQueue::ResetPrediction(int frame)
 {
-  ASSERT(_first_incorrect_frame == GameInput::NullFrame || frame <= _first_incorrect_frame);
-
+  // ASSERT(_first_incorrect_frame == GameInput::NullFrame || frame <= _first_incorrect_frame);
   Log("resetting all prediction errors back to frame %d.\n", frame);
 
   /*

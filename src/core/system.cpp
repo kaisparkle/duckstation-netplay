@@ -117,6 +117,9 @@ static void DoRunahead();
 
 static void DoMemorySaveStates();
 
+static int FindOldestNetplaySaveIndex();
+static int FindNetplaySaveIndexForFrame(int frame);
+
 static bool Initialize(bool force_software_renderer);
 
 static bool UpdateGameSettingsLayer();
@@ -208,7 +211,7 @@ static std::deque<MemorySaveState> s_runahead_states;
 static bool s_runahead_replay_pending = false;
 static u32 s_runahead_frames = 0;
 
-static std::deque<MemorySaveState> s_netplay_states;
+static std::deque<std::pair<s32, MemorySaveState>> s_netplay_states;
 
 static TinyString GetTimestampStringForFileName()
 {
@@ -3758,6 +3761,36 @@ void System::DoMemorySaveStates()
     SaveRunaheadState();
 }
 
+int System::FindOldestNetplaySaveIndex()
+{
+  // the oldest would be the one with the lowest frame number
+  int comp = INT_MAX;
+  int result_idx = -1;
+  for (int i = 0; i < s_netplay_states.size(); i++)
+  {
+    if (s_netplay_states[i].first < comp)
+    {
+      comp = s_netplay_states[i].first;
+      result_idx = i;
+    }
+  }
+  return result_idx;
+}
+
+int System::FindNetplaySaveIndexForFrame(int frame)
+{
+  int result_idx = -1;
+  for (int i = 0; i < s_netplay_states.size(); i++)
+  {
+    if (s_netplay_states[i].first == frame)
+    {
+      result_idx = i;
+      break;
+    }
+  }
+  return result_idx;
+}
+
 void System::SetRunaheadReplayFlag()
 {
   if (s_runahead_frames == 0 || s_runahead_states.empty())
@@ -4592,18 +4625,20 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
     return false;
   memcpy(*buffer, &dummyData, *len);
   // store state for later.
-  int pred = Netplay::Session::GetMaxPrediction() + 2;
   Log_InfoPrintf("cf: %d", Netplay::Session::ConfirmedFrame());
-  if (frame < pred)
+  if (s_netplay_states.size() < Netplay::NUM_ROLLBACK_FRAMES + 2)
   {
     MemorySaveState save;
     result = System::SaveMemoryState(&save);
-    s_netplay_states.push_back(std::move(save));
+    s_netplay_states.push_back(std::pair<s32, MemorySaveState>(frame, std::move(save)));
   }
   else
   {
-    // reuse streams
-    result = System::SaveMemoryState(&s_netplay_states[frame % pred]);
+    // find the oldest saved state and replace it
+    int idx = System::FindOldestNetplaySaveIndex();
+    Assert(idx != -1);
+    s_netplay_states[idx].first = frame;
+    result = System::SaveMemoryState(&s_netplay_states[idx].second);
   }
 #ifdef SYNCTEST
   *checksum = XXH3_64bits_withSeed(s_netplay_states[frame % pred].state_stream->GetMemoryPointer(),
@@ -4617,7 +4652,9 @@ bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame
   // Log_InfoPrint("Load!");
   // Disable Audio For upcoming rollback
   SPU::SetAudioOutputMuted(true);
-  return System::LoadMemoryState(s_netplay_states[frame_to_load % (Netplay::Session::GetMaxPrediction() + 2)]);
+  int idx = System::FindNetplaySaveIndexForFrame(frame_to_load);
+  Assert(idx != -1);
+  return System::LoadMemoryState(s_netplay_states[idx].second);
 }
 
 bool NpOnEventCb(void* ctx, GGPOEvent* ev)

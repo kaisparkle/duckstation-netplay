@@ -29,7 +29,7 @@ bool NpLogNetplayCb(void* context, char* filename, unsigned char* buffer, int le
 namespace Netplay {
 
 static int FRAME_WAIT_SPREAD = 120;
-static int NUM_ROLLBACK_FRAMES = 5;
+static int NUM_ROLLBACK_FRAMES = 8;
 
 struct Input
 {
@@ -73,6 +73,7 @@ public:
   static void RunFrame(int64_t& waitTime);
   static int32_t CurrentFrame();
   static int32_t ConfirmedFrame();
+  static void SetFrameCount(int32_t frame);
 
   static void CollectInput(uint32_t slot, uint32_t bind, float value);
   static Netplay::Input ReadLocalInput();

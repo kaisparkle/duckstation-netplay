@@ -35,6 +35,7 @@ void Sync::Init(Sync::Config& config)
   _callbacks = config.callbacks;
   _framecount = 0;
   _rollingback = false;
+  _low_saving = true;
 
   _max_prediction_frames = config.num_prediction_frames;
 
@@ -43,6 +44,9 @@ void Sync::Init(Sync::Config& config)
 
 void Sync::SetLastConfirmedFrame(int frame)
 {
+  if (_low_saving)
+    frame = MIN(frame, GetLastSavedFrame().frame);
+
   _last_confirmed_frame = frame;
   if (_last_confirmed_frame > 0)
   {
@@ -161,8 +165,8 @@ void Sync::AdjustSimulation(int seek_to)
    * Flush our input queue and load the last frame.
    */
   LoadFrame(seek_to, count);
-  ASSERT(_framecount == seek_to);
 
+  ASSERT(_framecount == seek_to);
   /*
    * Advance frame by frame (stuffing notifications back to
    * the master).
@@ -195,8 +199,8 @@ void Sync::LoadFrame(int frame, int framesToRollback)
   Log("=== Loading frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
 
   ASSERT(state->buf && state->cbuf);
+  // if it gets rejected. assume that this will be done by the user itself.
   _callbacks.load_game_state(_callbacks.context, state->buf, state->cbuf, framesToRollback, state->frame);
-
   // Reset framecount and the head of the state ring-buffer to point in
   // advance of the current frame (as if we had just finished executing it).
   _framecount = state->frame;
@@ -209,17 +213,37 @@ void Sync::SaveCurrentFrame()
    * See StateCompress for the real save feature implemented by FinalBurn.
    * Write everything into the head, then advance the head pointer.
    */
-  SavedFrame* state = &_savedstate.frames[_savedstate.head];
-  if (state->buf)
+  if (_low_saving)
   {
-    _callbacks.free_buffer(_callbacks.context, state->buf);
-    state->buf = NULL;
-  }
-  state->frame = _framecount;
-  _callbacks.save_game_state(_callbacks.context, &state->buf, &state->cbuf, &state->checksum, state->frame);
+    if (_framecount % _max_prediction_frames == 0)
+    {
+      SavedFrame* state = &_savedstate.frames[_savedstate.head];
+      if (state->buf)
+      {
+        _callbacks.free_buffer(_callbacks.context, state->buf);
+        state->buf = NULL;
+      }
+      state->frame = _framecount;
+      _callbacks.save_game_state(_callbacks.context, &state->buf, &state->cbuf, &state->checksum, state->frame);
 
-  Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
-  _savedstate.head = (_savedstate.head + 1) % (int)_savedstate.frames.size();
+      Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
+      _savedstate.head = (_savedstate.head + 1) % (int)_savedstate.frames.size();
+    }
+  }
+  else
+  {
+    SavedFrame* state = &_savedstate.frames[_savedstate.head];
+    if (state->buf)
+    {
+      _callbacks.free_buffer(_callbacks.context, state->buf);
+      state->buf = NULL;
+    }
+    state->frame = _framecount;
+    _callbacks.save_game_state(_callbacks.context, &state->buf, &state->cbuf, &state->checksum, state->frame);
+
+    Log("=== Saved frame info %d (size: %d  checksum: %08x).\n", state->frame, state->cbuf, state->checksum);
+    _savedstate.head = (_savedstate.head + 1) % (int)_savedstate.frames.size();
+  }
 }
 
 Sync::SavedFrame& Sync::GetLastSavedFrame()
@@ -280,7 +304,12 @@ bool Sync::CheckSimulationConsistency(int* seekTo)
     Log("prediction ok.  proceeding.\n");
     return true;
   }
-  *seekTo = first_incorrect;
+
+  if (!_low_saving)
+    *seekTo = first_incorrect;
+  else
+    *seekTo = GetLastSavedFrame().frame;
+
   return false;
 }
 

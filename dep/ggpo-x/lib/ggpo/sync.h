@@ -52,6 +52,7 @@ public:
 
   void SetLastConfirmedFrame(int frame);
   int GetLastConfirmedFrame();
+  void SetFrameCount(int frame);
   void SetFrameDelay(int queue, int delay);
   bool AddLocalInput(int queue, GameInput& input);
   void AddRemoteInput(int queue, GameInput& input);
@@ -105,6 +106,7 @@ protected:
   Config _config;
 
   bool _rollingback;
+  bool _low_saving;
   int _last_confirmed_frame;
   int _framecount;
   int _max_prediction_frames;
