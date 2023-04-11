@@ -209,6 +209,7 @@ static bool s_runahead_replay_pending = false;
 static u32 s_runahead_frames = 0;
 
 static std::deque<MemorySaveState> s_netplay_states;
+static s32 s_rollback_frames = -1;
 
 static TinyString GetTimestampStringForFileName()
 {
@@ -1572,29 +1573,43 @@ void System::ExecuteNetplay()
 {
   // frame timing
   s64 timeToWait = 1000000 / 60; // start off value here will change
-  s64 frameTime, accum = 0;
+  s64 frameTime = 0, accum = 0;
   std::chrono::steady_clock::time_point newTime, currTime;
   currTime = std::chrono::steady_clock::now();
   while (Netplay::Session::IsActive() && System::IsRunning())
   {
-    if (!IsValid() || !Netplay::Session::IsActive())
-      break;
-
     newTime = std::chrono::steady_clock::now();
     frameTime = std::chrono::duration_cast<std::chrono::microseconds>(newTime - currTime).count();
     currTime = newTime;
-    accum += frameTime;
+    accum += frameTime;;
 
     while (accum >= timeToWait)
     {
-      // this can shut us down
-      Host::PumpMessagesOnCPUThread();
       Netplay::Session::RunFrame(timeToWait);
       accum -= timeToWait;
-      s_next_frame_time += timeToWait;
+
+      // this can shut us down
+      Host::PumpMessagesOnCPUThread();
+      if (!IsValid() || !Netplay::Session::IsActive())
+        break;
     }
 
-    Host::RenderDisplay(false);
+    if (!IsValid() || !Netplay::Session::IsActive())
+      break;
+
+    s_next_frame_time += timeToWait;
+
+    const bool skip_present = g_host_display->ShouldSkipDisplayingFrame();
+    Host::RenderDisplay(skip_present);
+    if (!skip_present && g_host_display->IsGPUTimingEnabled())
+    {
+      s_accumulated_gpu_time += g_host_display->GetAndResetAccumulatedGPUTime();
+      s_presents_since_last_update++;
+    }
+
+    if (s_throttler_enabled)
+      System::Throttle();
+
     System::UpdatePerformanceCounters();
   }
 }
@@ -1784,7 +1799,18 @@ bool System::DoState(StateWrapper& sw, GPUTexture** host_texture, bool update_di
       cpu_overclock_active ?
         Settings::CPUOverclockFractionToPercent(cpu_overclock_numerator, cpu_overclock_denominator) :
         100u);
+
+    if (!is_memory_state) 
+    {
+      g_settings.cpu_overclock_enable = cpu_overclock_active;
+      g_settings.cpu_overclock_active = cpu_overclock_active;
+      g_settings.cpu_overclock_numerator = cpu_overclock_numerator;
+      g_settings.cpu_overclock_denominator = cpu_overclock_denominator;
+    }
+
     UpdateOverclock();
+
+    Log_InfoPrintf("%s", g_settings.cpu_overclock_enable ? "OVERCLOCK ON" : "OVERCLOCK OFF" );
   }
 
   if (!is_memory_state)
@@ -2222,7 +2248,8 @@ void System::DoRunFrame()
   }
 
   // Generate any pending samples from the SPU before sleeping, this way we reduce the chances of underruns.
-  SPU::GeneratePendingSamples();
+  if(s_rollback_frames <= 0)
+    SPU::GeneratePendingSamples();
 
   if (s_cheat_list)
     s_cheat_list->Apply();
@@ -4570,6 +4597,7 @@ bool NpBeginGameCb(void* ctx, const char* game_name)
 bool NpAdvFrameCb(void* ctx, int flags)
 {
   // Log_InfoPrint("Advance!");
+  s_rollback_frames--;
   Netplay::Input inputs[2] = {};
   int disconnectFlags;
   Netplay::Session::SyncInput(inputs, &disconnectFlags);
@@ -4610,6 +4638,7 @@ bool NpSaveFrameCb(void* ctx, uint8_t** buffer, int* len, int* checksum, int fra
 
 bool NpLoadFrameCb(void* ctx, uint8_t* buffer, int len, int rb_frames, int frame_to_load)
 {
+  s_rollback_frames = rb_frames;
   // Log_InfoPrint("Load!");
   // Disable Audio For upcoming rollback
   SPU::SetAudioOutputMuted(true);

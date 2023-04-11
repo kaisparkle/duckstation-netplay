@@ -189,6 +189,7 @@ void Netplay::Session::RunFrame(int64_t& waitTime)
     if (GGPO_SUCCEEDED(result))
     {
       // enable again when rolling back done
+      // SPU::GeneratePendingSamples();
       SPU::SetAudioOutputMuted(false);
       System::NetplayAdvanceFrame(inputs, disconnectFlags);
     }
