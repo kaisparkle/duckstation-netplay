@@ -325,7 +325,7 @@ void TraversalThread::OpenTraversalSocket()
   m_socket = new QUdpSocket(this);
   m_socket->bind(QHostAddress::AnyIPv4, 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
   m_traversal_conf->local_port = m_socket->localPort();
-  m_socket->writeDatagram(m_traversal_conf->opening_msg.toUtf8(), QHostAddress::LocalHost, 4420);
+  m_socket->writeDatagram(m_traversal_conf->opening_msg.toUtf8(), QHostAddress("192.9.167.78"), 4420);
 }
 
 void TraversalThread::HandleTraversalExchange()
